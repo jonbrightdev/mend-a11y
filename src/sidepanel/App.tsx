@@ -68,8 +68,31 @@ export function App() {
     };
     chrome.permissions.onAdded.addListener(onPerm);
     chrome.permissions.onRemoved.addListener(onPerm);
+
+    // The side panel closing does not reliably run React effect cleanup, so
+    // clear any page overlay explicitly when the panel document is hidden or
+    // unloaded. pagehide is the dependable unload signal for this context.
+    const clearOnLeave = (): void => {
+      const id = activeIdForRun.current;
+      if (id != null) {
+        try {
+          void chrome.runtime.sendMessage({ type: 'CLEAR_HIGHLIGHT', tabId: id });
+        } catch {
+          /* worker may already be tearing down; the port disconnect is the backstop */
+        }
+      }
+    };
+    const onHide = (): void => {
+      if (document.visibilityState === 'hidden') clearOnLeave();
+    };
+    window.addEventListener('pagehide', clearOnLeave);
+    document.addEventListener('visibilitychange', onHide);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('pagehide', clearOnLeave);
+      document.removeEventListener('visibilitychange', onHide);
+      clearOnLeave();
       port.disconnect();
       chrome.permissions.onAdded.removeListener(onPerm);
       chrome.permissions.onRemoved.removeListener(onPerm);

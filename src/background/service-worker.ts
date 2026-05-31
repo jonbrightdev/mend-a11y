@@ -23,8 +23,28 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 // The tab where a highlight overlay is currently shown, so we can clear it when
-// the panel closes or the user moves on.
-let highlightTabId: number | null = null;
+// the panel closes or the user moves on. Backed by session storage so an evicted
+// service worker can still recover and clear it on the panel's port disconnect.
+const HL_KEY = 'highlightTabId';
+
+async function setHighlightTab(tabId: number | null): Promise<void> {
+  try {
+    if (tabId == null) await chrome.storage.session.remove(HL_KEY);
+    else await chrome.storage.session.set({ [HL_KEY]: tabId });
+  } catch {
+    /* ignore */
+  }
+}
+
+async function getHighlightTab(): Promise<number | null> {
+  try {
+    const got = await chrome.storage.session.get(HL_KEY);
+    const id = got[HL_KEY];
+    return typeof id === 'number' ? id : null;
+  } catch {
+    return null;
+  }
+}
 
 function clearHighlightOn(tabId: number): void {
   chrome.scripting
@@ -33,29 +53,36 @@ function clearHighlightOn(tabId: number): void {
 }
 
 // Drop cached results when a tab starts navigating so we never show stale data,
-// and clear any overlay we had on it.
+// and forget any overlay we had on it (the navigation tears the overlay down).
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
     void clearCachedAudit(tabId);
-    if (highlightTabId === tabId) highlightTabId = null;
+    void getHighlightTab().then((id) => {
+      if (id === tabId) void setHighlightTab(null);
+    });
   }
 });
 
 // Tidy the per-tab cache when a tab closes so ids don't accumulate stale audits.
 chrome.tabs.onRemoved.addListener((tabId) => {
   void clearCachedAudit(tabId);
-  if (highlightTabId === tabId) highlightTabId = null;
+  void getHighlightTab().then((id) => {
+    if (id === tabId) void setHighlightTab(null);
+  });
 });
 
 // The panel opens a long-lived port on mount. When the panel closes, the port
-// disconnects and we clear any overlay still drawn on the page.
+// disconnects and we clear any overlay still drawn on the page. Reading the id
+// from session storage means this works even if the worker restarted meanwhile.
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'mend-panel') return;
   port.onDisconnect.addListener(() => {
-    if (highlightTabId != null) {
-      clearHighlightOn(highlightTabId);
-      highlightTabId = null;
-    }
+    void getHighlightTab().then((id) => {
+      if (id != null) {
+        clearHighlightOn(id);
+        void setHighlightTab(null);
+      }
+    });
   });
 });
 
@@ -85,7 +112,7 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
       return { ok: true };
     }
     case 'HIGHLIGHT': {
-      highlightTabId = message.tabId;
+      void setHighlightTab(message.tabId);
       await chrome.scripting
         .executeScript({
           target: { tabId: message.tabId },
@@ -96,7 +123,7 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
       return { ok: true };
     }
     case 'CLEAR_HIGHLIGHT': {
-      if (highlightTabId === message.tabId) highlightTabId = null;
+      void setHighlightTab(null);
       await chrome.scripting
         .executeScript({
           target: { tabId: message.tabId },
