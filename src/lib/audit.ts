@@ -103,14 +103,16 @@ export async function runAxeInPage(args: {
 }
 
 function assertAuditable(url: string): void {
-  if (!url) {
-    throw new Error("Mend can't read this tab. Open a normal website and try again.");
-  }
+  // Note: an empty url is NOT treated as fatal here. Under activeTab, a normal
+  // page the extension hasn't been granted on returns an empty url, identical
+  // to a restricted page. We defer that case to the injection attempt, which
+  // throws a classifiable error (permission vs restricted). This function only
+  // rejects pages we can positively identify as unauditable from a known url.
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    throw new Error("Mend can't audit this tab. Open a normal website and try again.");
+    return;
   }
   const blocked = [
     'chrome:',
@@ -138,24 +140,40 @@ function assertAuditable(url: string): void {
 const AUDIT_TIMEOUT_MS = 45_000;
 const FRAME_WAIT_MS = 15_000;
 
+/** True when executeScript failed because the page itself can't be scripted. */
+function isRestrictedPageError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /chrome:\/\/|chrome-extension:\/\/|edge:\/\/|about:|view-source:|devtools:|extensions? gallery|cannot be scripted|chrome web store/i.test(
+    msg,
+  );
+}
+
 /** True when executeScript was denied host access (the activeTab grant is missing). */
 function isPermissionError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return /cannot access|host permission|activeTab|extension manifest|no tab with id|chrome:\/\//i.test(
+  return /cannot access contents|host permission|activeTab|must request permission|not in effect|has not been invoked|all[_ ]?urls|no tab with id/i.test(
     msg,
+  );
+}
+
+function restrictedPageError(): Error {
+  return new Error(
+    'Mend audits normal web pages, not browser or extension pages. Open a website tab and try again.',
   );
 }
 
 function needsInvocationError(): Error {
   return new Error(
-    'Mend needs permission for this tab. Click the Mend icon in your toolbar to grant access to this page, then run the audit again.',
+    "Mend needs access to this tab. Click the Mend icon in your toolbar (or press the shortcut) on this page, then run the audit again. Mend only sees a tab when you open it there.",
   );
 }
 
 export async function runAudit(tabId: number): Promise<AuditResult> {
   const tab = await chrome.tabs.get(tabId);
-  const url = tab.url ?? '';
-  assertAuditable(url);
+  let url = tab.url ?? '';
+  // Only pre-check when the url is actually readable; otherwise the injection
+  // attempt below classifies the failure (no grant vs restricted page).
+  if (url) assertAuditable(url);
 
   const settings = await getSettings();
   const runOnlyTags = axeRunOnlyTags(settings);
@@ -177,9 +195,11 @@ export async function runAudit(tabId: number): Promise<AuditResult> {
       partial = true;
     }
   } catch (frameErr) {
-    // If access was denied, this is the activeTab grant missing for this tab
-    // (e.g. the user opened the panel on one tab then switched). Guide them to
-    // re-grant rather than showing a dead-end error.
+    // Restricted pages (chrome://, the Web Store) can never be scripted; say so.
+    if (isRestrictedPageError(frameErr)) throw restrictedPageError();
+    // Otherwise this is the activeTab grant missing for this tab (e.g. the user
+    // opened the panel on one tab then switched to a new one without invoking
+    // Mend there). Guide them to grant rather than showing a dead-end error.
     if (isPermissionError(frameErr)) throw needsInvocationError();
     console.warn('[mend] all-frames injection failed; retrying top frame only.', frameErr);
     partial = true;
@@ -190,8 +210,20 @@ export async function runAudit(tabId: number): Promise<AuditResult> {
         files: ['vendor/axe.min.js'],
       });
     } catch (topErr) {
+      if (isRestrictedPageError(topErr)) throw restrictedPageError();
       if (isPermissionError(topErr)) throw needsInvocationError();
       throw new Error("Mend couldn't load on this page. Try reloading the tab and running again.");
+    }
+  }
+
+  // If the url was unreadable before (no grant yet) but injection has now
+  // succeeded, the grant is active, so re-read it for an accurate display url.
+  if (!url) {
+    try {
+      const t = await chrome.tabs.get(tabId);
+      url = t.url ?? '';
+    } catch {
+      /* leave empty */
     }
   }
 
