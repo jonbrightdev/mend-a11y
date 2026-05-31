@@ -2,9 +2,11 @@ import { PlayIcon, AlertIcon, ShieldIcon } from '../components/Icon';
 
 export function EmptyScreen({
   error,
+  host,
   onRun,
 }: {
   error: string | null;
+  host?: string | null;
   onRun: () => void;
 }) {
   return (
@@ -17,8 +19,17 @@ export function EmptyScreen({
       )}
       <h1 class="hero-title">Mend</h1>
       <p class="lede">
-        Scan the active tab against WCAG 2.1 AA. Mend flags what's broken, where it lives, and how
-        to fix it.
+        {host ? (
+          <>
+            Ready to audit <strong>{host}</strong> against WCAG 2.1 AA. Mend flags what's broken,
+            where it lives, and how to fix it.
+          </>
+        ) : (
+          <>
+            Scan the active tab against WCAG 2.1 AA. Mend flags what's broken, where it lives, and
+            how to fix it.
+          </>
+        )}
       </p>
       <button class="btn primary block" onClick={onRun} style={{ maxWidth: '220px' }}>
         <PlayIcon />

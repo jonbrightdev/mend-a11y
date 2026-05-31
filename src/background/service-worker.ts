@@ -8,22 +8,55 @@ import {
   setSettings,
 } from '../lib/storage';
 
-// Toolbar button opens the side panel.
-function enablePanelOnClick(): void {
-  chrome.sidePanel
-    ?.setPanelBehavior?.({ openPanelOnActionClick: true })
-    .catch(() => {
-      /* not fatal */
-    });
-}
-chrome.runtime.onInstalled.addListener(enablePanelOnClick);
-enablePanelOnClick();
+// Open the side panel from the action click. Doing this in onClicked (rather
+// than via openPanelOnActionClick) means the click confers the activeTab grant
+// for the current tab, which a bare side-panel open does not. The grant then
+// persists for that tab until it navigates, so the subsequent Run audit works.
+chrome.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: false }).catch(() => {});
 
-// Drop cached results when a tab starts navigating so we never show stale data.
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.windowId != null) {
+    chrome.sidePanel.open({ windowId: tab.windowId }).catch((e: unknown) => {
+      console.warn('[mend] sidePanel.open failed', e);
+    });
+  }
+});
+
+// The tab where a highlight overlay is currently shown, so we can clear it when
+// the panel closes or the user moves on.
+let highlightTabId: number | null = null;
+
+function clearHighlightOn(tabId: number): void {
+  chrome.scripting
+    .executeScript({ target: { tabId }, func: clearHighlightInPage })
+    .catch(() => {});
+}
+
+// Drop cached results when a tab starts navigating so we never show stale data,
+// and clear any overlay we had on it.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
     void clearCachedAudit(tabId);
+    if (highlightTabId === tabId) highlightTabId = null;
   }
+});
+
+// Tidy the per-tab cache when a tab closes so ids don't accumulate stale audits.
+chrome.tabs.onRemoved.addListener((tabId) => {
+  void clearCachedAudit(tabId);
+  if (highlightTabId === tabId) highlightTabId = null;
+});
+
+// The panel opens a long-lived port on mount. When the panel closes, the port
+// disconnects and we clear any overlay still drawn on the page.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'mend-panel') return;
+  port.onDisconnect.addListener(() => {
+    if (highlightTabId != null) {
+      clearHighlightOn(highlightTabId);
+      highlightTabId = null;
+    }
+  });
 });
 
 chrome.runtime.onMessage.addListener((message: PanelMessage, _sender, sendResponse) => {
@@ -52,6 +85,7 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
       return { ok: true };
     }
     case 'HIGHLIGHT': {
+      highlightTabId = message.tabId;
       await chrome.scripting
         .executeScript({
           target: { tabId: message.tabId },
@@ -62,6 +96,7 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
       return { ok: true };
     }
     case 'CLEAR_HIGHLIGHT': {
+      if (highlightTabId === message.tabId) highlightTabId = null;
       await chrome.scripting
         .executeScript({
           target: { tabId: message.tabId },

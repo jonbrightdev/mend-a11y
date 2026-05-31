@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { AuditResult, NormalizedIssue, Settings } from '../lib/types';
 import {
   sendToWorker,
-  type CachedAuditResponse,
   type RunAuditResponse,
   type SettingsResponse,
 } from '../lib/messages';
@@ -16,6 +15,7 @@ import { PassScreen } from './screens/PassScreen';
 import { SettingsIcon } from './components/Icon';
 import { announce } from './hooks/a11y';
 import { useThemeClass } from './hooks/theme';
+import { useActiveTab } from './hooks/activeTab';
 
 const IssueDetailScreen = lazy(() =>
   import('./screens/IssueDetailScreen').then((m) => ({ default: m.IssueDetailScreen })),
@@ -32,9 +32,12 @@ type Route = 'empty' | 'running' | 'results' | 'pass' | 'detail';
 export function App() {
   const [route, setRoute] = useState<Route>('empty');
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [result, setResult] = useState<AuditResult | null>(null);
+  // Results keyed by tab id, so several tabs can hold audits at once and the
+  // panel can swap instantly when the user changes tabs.
+  const [resultsByTab, setResultsByTab] = useState<Record<number, AuditResult>>({});
   const [error, setError] = useState<string | null>(null);
   const [auditDone, setAuditDone] = useState(false);
+  const [runningTabId, setRunningTabId] = useState<number | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [suppressed, setSuppressed] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
@@ -42,35 +45,50 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  const tabIdRef = useRef<number | null>(null);
   useThemeClass(settings.theme);
+  const active = useActiveTab();
+  const tabId = active.tabId;
+  const result = tabId != null ? resultsByTab[tabId] ?? null : null;
 
-  // Resolve the active tab and hydrate settings + any cached audit on open.
+  // Hydrate settings once on open, and open the panel-close port so the worker
+  // can clear any page overlay when this panel is dismissed.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      if (cancelled) return;
-      tabIdRef.current = tab?.id ?? null;
-
       const s = await sendToWorker<SettingsResponse>({ type: 'GET_SETTINGS' });
       if (!cancelled) setSettings(s.settings);
-
-      if (tab?.id != null) {
-        const cached = await sendToWorker<CachedAuditResponse>({
-          type: 'GET_CACHED_AUDIT',
-          tabId: tab.id,
-        });
-        if (!cancelled && cached.result) {
-          setResult(cached.result);
-          setRoute(cached.result.issues.length === 0 ? 'pass' : 'results');
-        }
-      }
     })();
+    const port = chrome.runtime.connect({ name: 'mend-panel' });
     return () => {
       cancelled = true;
+      port.disconnect();
     };
   }, []);
+
+  // Fold a tab's cached audit (from the active-tab hook) into the result map.
+  useEffect(() => {
+    if (active.tabId != null && active.cached) {
+      const id = active.tabId;
+      const cached = active.cached;
+      setResultsByTab((prev) => (prev[id] === cached ? prev : { ...prev, [id]: cached }));
+    }
+  }, [active.tabId, active.cached]);
+
+  // Drive the visible route from the active tab. Switching tabs shows that
+  // tab's result, or its empty state if it hasn't been audited. We don't
+  // disturb the modal sheets or an in-progress run on this tab.
+  useEffect(() => {
+    if (active.loading) return;
+    if (runningTabId != null && runningTabId === tabId) return;
+    setError(null);
+    setActiveId(null);
+    if (result) {
+      setRoute(result.issues.length === 0 ? 'pass' : 'results');
+    } else {
+      setRoute('empty');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabId, active.loading, result]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -78,20 +96,21 @@ export function App() {
   }, []);
 
   const runAudit = useCallback(async () => {
-    const tabId = tabIdRef.current;
     if (tabId == null) {
       setError('Open a normal website tab, then try again.');
       return;
     }
+    const target = tabId;
     setError(null);
     setAuditDone(false);
+    setRunningTabId(target);
     setRoute('running');
     announce('Audit started');
     try {
       // Watchdog: if the worker stalls or the service worker is suspended
       // mid-audit, this guarantees the UI leaves the running state.
       const res = await Promise.race([
-        sendToWorker<RunAuditResponse>({ type: 'RUN_AUDIT', tabId }),
+        sendToWorker<RunAuditResponse>({ type: 'RUN_AUDIT', tabId: target }),
         new Promise<never>((_, reject) =>
           window.setTimeout(
             () =>
@@ -105,33 +124,41 @@ export function App() {
         ),
       ]);
       setAuditDone(true);
+      setRunningTabId(null);
       if (!res.ok) {
         setError(res.error);
-        setRoute('empty');
+        // Only surface the error if the user is still on the tab they ran on.
+        if (tabIdNow() === target) setRoute('empty');
         announce('Audit could not run');
         return;
       }
-      setResult(res.result);
+      setResultsByTab((prev) => ({ ...prev, [target]: res.result }));
       setSuppressed(new Set());
       const count = res.result.issues.length;
-      if (count === 0) {
-        setRoute('pass');
-        announce('Audit complete. No issues found.');
-      } else {
-        setRoute('results');
-        announce(`Audit complete. ${count} ${count === 1 ? 'issue' : 'issues'} found.`);
-      }
+      announce(
+        count === 0
+          ? 'Audit complete. No issues found.'
+          : `Audit complete. ${count} ${count === 1 ? 'issue' : 'issues'} found.`,
+      );
+      // Reflect the result only if the user is still looking at that tab.
+      if (tabIdNow() === target) setRoute(count === 0 ? 'pass' : 'results');
     } catch (err) {
       setAuditDone(true);
+      setRunningTabId(null);
       setError(
         err instanceof Error && err.message
           ? err.message
           : "The scan didn't finish. The page may have closed or changed. Try running it again.",
       );
-      setRoute('empty');
+      if (tabIdNow() === target) setRoute('empty');
       announce('Audit could not run');
     }
-  }, []);
+  }, [tabId]);
+
+  // Read the current active tab id without re-creating runAudit on every switch.
+  const activeIdForRun = useRef<number | null>(null);
+  activeIdForRun.current = tabId;
+  const tabIdNow = (): number | null => activeIdForRun.current;
 
   // Apply suppression + filter sheet selections to the cached result.
   const visibleResult = useMemo<AuditResult | null>(() => {
@@ -158,15 +185,16 @@ export function App() {
     announce('Issue opened');
   }, []);
 
-  const highlight = useCallback((selector: string) => {
-    const tabId = tabIdRef.current;
-    if (tabId != null) void sendToWorker({ type: 'HIGHLIGHT', tabId, selector });
-  }, []);
+  const highlight = useCallback(
+    (selector: string) => {
+      if (tabId != null) void sendToWorker({ type: 'HIGHLIGHT', tabId, selector });
+    },
+    [tabId],
+  );
 
   const clearHighlight = useCallback(() => {
-    const tabId = tabIdRef.current;
     if (tabId != null) void sendToWorker({ type: 'CLEAR_HIGHLIGHT', tabId });
-  }, []);
+  }, [tabId]);
 
   // Clear any page overlay when leaving the detail view.
   useEffect(() => {
@@ -192,7 +220,9 @@ export function App() {
       </div>
 
       <div class="scroll">
-        {route === 'empty' && <EmptyScreen error={error} onRun={() => void runAudit()} />}
+        {route === 'empty' && (
+          <EmptyScreen error={error} host={active.host} onRun={() => void runAudit()} />
+        )}
         {route === 'running' && <RunningScreen done={auditDone} />}
         {route === 'results' && visibleResult && (
           <ResultsScreen
