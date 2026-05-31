@@ -16,6 +16,7 @@ import { SettingsIcon } from './components/Icon';
 import { announce } from './hooks/a11y';
 import { useThemeClass } from './hooks/theme';
 import { useActiveTab } from './hooks/activeTab';
+import { hasAllSitesAccess, requestAllSitesAccess, revokeAllSitesAccess } from '../lib/permissions';
 
 const IssueDetailScreen = lazy(() =>
   import('./screens/IssueDetailScreen').then((m) => ({ default: m.IssueDetailScreen })),
@@ -44,6 +45,7 @@ export function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [allSites, setAllSites] = useState(false);
 
   useThemeClass(settings.theme);
   const active = useActiveTab();
@@ -57,11 +59,20 @@ export function App() {
     void (async () => {
       const s = await sendToWorker<SettingsResponse>({ type: 'GET_SETTINGS' });
       if (!cancelled) setSettings(s.settings);
+      const granted = await hasAllSitesAccess();
+      if (!cancelled) setAllSites(granted);
     })();
     const port = chrome.runtime.connect({ name: 'mend-panel' });
+    const onPerm = (): void => {
+      void hasAllSitesAccess().then((g) => setAllSites(g));
+    };
+    chrome.permissions.onAdded.addListener(onPerm);
+    chrome.permissions.onRemoved.addListener(onPerm);
     return () => {
       cancelled = true;
       port.disconnect();
+      chrome.permissions.onAdded.removeListener(onPerm);
+      chrome.permissions.onRemoved.removeListener(onPerm);
     };
   }, []);
 
@@ -93,6 +104,22 @@ export function App() {
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(null), 1400);
+  }, []);
+
+  // Request all-sites access (one-time opt-in) from this click, then audit.
+  const grantAndRun = useCallback(async () => {
+    const granted = await requestAllSitesAccess();
+    setAllSites(granted);
+    if (granted) {
+      announce('Access granted for all sites');
+      void runAuditRef.current?.();
+    }
+  }, []);
+
+  const toggleAllSites = useCallback(async (next: boolean) => {
+    const ok = next ? await requestAllSitesAccess() : await revokeAllSitesAccess();
+    // After a request the state is whatever was granted; after a revoke it's off.
+    setAllSites(next ? ok : false);
   }, []);
 
   const runAudit = useCallback(async () => {
@@ -160,6 +187,9 @@ export function App() {
   activeIdForRun.current = tabId;
   const tabIdNow = (): number | null => activeIdForRun.current;
 
+  const runAuditRef = useRef<typeof runAudit | null>(null);
+  runAuditRef.current = runAudit;
+
   // Apply suppression + filter sheet selections to the cached result.
   const visibleResult = useMemo<AuditResult | null>(() => {
     if (!result) return null;
@@ -221,7 +251,13 @@ export function App() {
 
       <div class="scroll">
         {route === 'empty' && (
-          <EmptyScreen error={error} host={active.host} onRun={() => void runAudit()} />
+          <EmptyScreen
+            error={error}
+            host={active.host}
+            allSites={allSites}
+            onRun={() => void runAudit()}
+            onGrantAndRun={() => void grantAndRun()}
+          />
         )}
         {route === 'running' && <RunningScreen done={auditDone} />}
         {route === 'results' && visibleResult && (
@@ -284,6 +320,8 @@ export function App() {
             settings={settings}
             onChange={updateSettings}
             onClose={() => setShowSettings(false)}
+            allSites={allSites}
+            onToggleAllSites={(next) => void toggleAllSites(next)}
           />
         </Suspense>
       )}

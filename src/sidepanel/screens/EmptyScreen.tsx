@@ -4,11 +4,15 @@ import { Pip } from '../components/Pip';
 export function EmptyScreen({
   error,
   host,
+  allSites,
   onRun,
+  onGrantAndRun,
 }: {
   error: string | null;
   host?: string | null;
+  allSites: boolean;
   onRun: () => void;
+  onGrantAndRun: () => void;
 }) {
   return (
     <div class="center-stage">
@@ -42,6 +46,11 @@ export function EmptyScreen({
         <span class="kbd">Shift</span>
         <span class="kbd">A</span>
       </span>
+      {!allSites && (
+        <button class="link-btn opt-in" onClick={onGrantAndRun}>
+          Audit any tab without clicking the icon each time
+        </button>
+      )}
       <span class="reassure">
         <ShieldIcon />
         Nothing leaves your machine

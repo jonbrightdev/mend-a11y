@@ -5,10 +5,14 @@ export function SettingsScreen({
   settings,
   onChange,
   onClose,
+  allSites,
+  onToggleAllSites,
 }: {
   settings: Settings;
   onChange: (next: Settings) => void;
   onClose: () => void;
+  allSites: boolean;
+  onToggleAllSites: (next: boolean) => void;
 }) {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]): void =>
     onChange({ ...settings, [key]: value });
@@ -69,6 +73,12 @@ export function SettingsScreen({
           { value: 'outline', label: 'Outline' },
           { value: 'overlay', label: 'Overlay' },
         ]}
+      />
+      <Switch
+        name="Access all sites"
+        desc="Audit any tab without invoking Mend on each one. Off by default; nothing leaves your machine either way."
+        checked={allSites}
+        onChange={onToggleAllSites}
       />
     </Modal>
   );

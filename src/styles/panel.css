@@ -255,6 +255,28 @@ pre {
     transform: translateY(-7px) rotate(1deg);
   }
 }
+
+/* ---------- link-style button ---------- */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  margin: 0;
+  font: inherit;
+  color: var(--ap-accent);
+  cursor: pointer;
+  border-radius: 6px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link-btn:hover {
+  color: var(--ap-accent-hover);
+}
+.opt-in {
+  font-size: 13px;
+  max-width: 30ch;
+  line-height: 1.4;
+}
 .kbd-hint {
   display: inline-flex;
   align-items: center;

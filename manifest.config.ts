@@ -14,6 +14,11 @@ export default defineManifest({
   // No host_permissions. Mend uses activeTab, so it has access to a page only
   // when the user invokes it, and never any standing access to any site.
   permissions: ['activeTab', 'scripting', 'storage', 'sidePanel'],
+  // Optional, opt-in only. The user can grant access to all sites from inside
+  // the panel so several tabs can be audited without re-invoking on each. This
+  // is requested at runtime with an explicit Chrome consent prompt, so there is
+  // no broad-permission warning at install.
+  optional_host_permissions: ['<all_urls>'],
   icons: {
     '16': 'public/icons/icon-16.png',
     '32': 'public/icons/icon-32.png',
