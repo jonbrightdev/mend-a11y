@@ -1,5 +1,6 @@
 import type { AuditResult } from '../../lib/types';
-import { RefreshIcon, CheckIcon, ShieldIcon } from '../components/Icon';
+import { RefreshIcon, ShieldIcon } from '../components/Icon';
+import { Pip } from '../components/Pip';
 
 const PASSED_AREAS = [
   'Structure',
@@ -19,19 +20,7 @@ export function PassScreen({
 }) {
   return (
     <div class="center-stage">
-      <div
-        style={{
-          width: '64px',
-          height: '64px',
-          borderRadius: '50%',
-          background: 'var(--ap-pass-bg)',
-          color: 'var(--ap-pass-fg)',
-          display: 'grid',
-          placeItems: 'center',
-        }}
-      >
-        <CheckIcon size={34} />
-      </div>
+      <Pip class="pip--pass" />
       <span class="stamp">PASSED</span>
       <p class="lede">
         No automated WCAG issues found across {result.totalChecks.toLocaleString()} checks. A clean

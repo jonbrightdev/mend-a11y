@@ -1,4 +1,5 @@
 import { PlayIcon, AlertIcon, ShieldIcon } from '../components/Icon';
+import { Pip } from '../components/Pip';
 
 export function EmptyScreen({
   error,
@@ -17,6 +18,7 @@ export function EmptyScreen({
           <span>{error}</span>
         </div>
       )}
+      <Pip class="pip--hero float" />
       <h1 class="hero-title">Mend</h1>
       <p class="lede">
         {host ? (

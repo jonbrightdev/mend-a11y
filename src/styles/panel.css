@@ -227,6 +227,34 @@ pre {
   max-width: 30ch;
   margin: 0;
 }
+
+/* ---------- Pip mascot ---------- */
+.pip {
+  display: block;
+  height: auto;
+  /* slight shadow lifts him off the dark panel */
+  filter: drop-shadow(0 6px 10px rgba(20, 16, 12, 0.28));
+}
+.pip--hero {
+  width: 116px;
+}
+.pip--pass {
+  width: 104px;
+}
+.float {
+  animation: pip-float 4.2s ease-in-out infinite;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+@keyframes pip-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(1deg);
+  }
+}
 .kbd-hint {
   display: inline-flex;
   align-items: center;

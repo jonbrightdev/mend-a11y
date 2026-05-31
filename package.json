@@ -1,6 +1,6 @@
 {
   "name": "mend-a11y",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Find accessibility issues on the active page and learn how to fix them.",
   "type": "module",
   "license": "MIT",
