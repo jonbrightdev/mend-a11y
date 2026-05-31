@@ -1,0 +1,50 @@
+Mend
+Copyright (c) 2026 Mend contributors
+
+This product includes software developed by third parties. The Mend project's
+own source code is licensed under the MIT License (see LICENSE). The bundled
+components listed below are licensed separately under their own terms, which
+are not superseded by Mend's MIT License.
+
+================================================================================
+axe-core
+================================================================================
+
+Vendored at: public/vendor/axe.min.js (also copied into the built extension at
+vendor/axe.min.js).
+
+  Project:  axe-core
+  Source:   https://github.com/dequelabs/axe-core
+  Version:  4.11.4
+  License:  Mozilla Public License, version 2.0 (MPL-2.0)
+  Copyright (c) Deque Systems, Inc. and contributors
+
+axe-core is distributed under the Mozilla Public License 2.0. A copy of the
+license accompanies the engine in its source repository, and the full license
+text is reproduced in licenses/MPL-2.0.txt in this repository.
+
+Compliance notes for the MPL-2.0:
+
+  - The engine file is bundled unmodified. Its license header is preserved
+    in the file as shipped.
+  - The MPL-2.0 is a file-level (weak) copyleft license. It governs only the
+    MPL-licensed file(s) themselves, not the code that uses them. Mend does not
+    modify axe-core's source; it loads the engine file at audit time and
+    consumes its output. Mend's own code therefore remains under the MIT
+    License.
+  - If you modify the vendored engine file, the MPL-2.0 requires you to make
+    the modified source of that file available under the MPL-2.0.
+  - axe-core bundles its own third-party dependencies under their respective
+    terms; see LICENSE-3RD-PARTY in the axe-core repository.
+
+To update the vendored engine, run `npm run sync-axe`, which copies
+node_modules/axe-core/axe.min.js into public/vendor/. When bumping the version,
+update the Version field above to match.
+
+================================================================================
+
+The product user interface does not display the name of the bundled engine.
+This is a presentation choice in the product, not a license matter: attribution
+for axe-core is provided here in NOTICE, in licenses/MPL-2.0.txt, and in the
+preserved header of the vendored engine file, which together satisfy the
+MPL-2.0 attribution requirements.

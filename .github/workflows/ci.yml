@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Installs deps (postinstall vendors axe-core) and downloads the
+      # Chrome for Testing build Puppeteer uses for the smoke test.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      # Extension loading is most reliable in a headful browser, so run the
+      # smoke test under a virtual display.
+      - name: Side panel smoke test
+        run: xvfb-run -a npm run test:smoke
+
+      - name: Package dist
+        run: |
+          cd dist
+          zip -qr ../mend-a11y-dist.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mend-a11y-dist
+          path: mend-a11y-dist.zip
+          if-no-files-found: error

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.zip
+
+# Vendored engine: regenerated from node_modules by the postinstall / sync-axe
+# script, so it is not source. Run `npm install` (or `npm run sync-axe`) to
+# produce it.
+public/vendor/axe.min.js
+
+# Logs
+npm-debug.log*
+*.log
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env
+.env
+.env.local
