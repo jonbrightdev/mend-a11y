@@ -61,12 +61,6 @@ export function SettingsScreen({
         checked={settings.experimentalRules}
         onChange={(v) => set('experimentalRules', v)}
       />
-      <Switch
-        name="Audit on tab change"
-        desc="Re-run automatically when you switch tabs."
-        checked={settings.autoAuditOnTabChange}
-        onChange={(v) => set('autoAuditOnTabChange', v)}
-      />
       <Segment
         label="Highlight style"
         value={settings.highlightStyle}

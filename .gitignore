@@ -23,3 +23,8 @@ npm-debug.log*
 # Env
 .env
 .env.local
+
+# Extension signing key (private). NEVER commit. Back up securely offline.
+key.pem
+*.pem
+.pubkey.b64

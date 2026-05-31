@@ -1,5 +1,6 @@
 import { runAudit } from '../lib/audit';
 import type { PanelMessage } from '../lib/messages';
+import { HIGHLIGHT_ACCENT, clearHighlightInPage, highlightInPage } from '../lib/highlight';
 import {
   clearCachedAudit,
   getCachedAudit,
@@ -51,14 +52,21 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
       return { ok: true };
     }
     case 'HIGHLIGHT': {
-      await chrome.tabs
-        .sendMessage(message.tabId, { type: 'HIGHLIGHT', selector: message.selector })
-        .catch(() => {});
+      await chrome.scripting
+        .executeScript({
+          target: { tabId: message.tabId },
+          func: highlightInPage,
+          args: [message.selector, HIGHLIGHT_ACCENT],
+        })
+        .catch((e: unknown) => console.warn('[mend] highlight failed', e));
       return { ok: true };
     }
     case 'CLEAR_HIGHLIGHT': {
-      await chrome.tabs
-        .sendMessage(message.tabId, { type: 'CLEAR_HIGHLIGHT' })
+      await chrome.scripting
+        .executeScript({
+          target: { tabId: message.tabId },
+          func: clearHighlightInPage,
+        })
         .catch(() => {});
       return { ok: true };
     }

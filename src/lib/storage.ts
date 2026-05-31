@@ -6,7 +6,6 @@ export const DEFAULT_SETTINGS: Settings = {
   conformanceLevel: 'AA',
   thoroughness: 'standard',
   experimentalRules: false,
-  autoAuditOnTabChange: false,
   highlightStyle: 'overlay',
 };
 

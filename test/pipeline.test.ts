@@ -69,7 +69,6 @@ const tags = axeRunOnlyTags({
   conformanceLevel: 'AA',
   thoroughness: 'deep',
   experimentalRules: false,
-  autoAuditOnTabChange: false,
   highlightStyle: 'overlay',
 });
 eq('2.2 AA deep includes wcag22aa', tags.includes('wcag22aa'), true);

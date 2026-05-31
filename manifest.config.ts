@@ -6,8 +6,14 @@ export default defineManifest({
   name: 'Mend: Accessibility Audit',
   version: pkg.version,
   description: 'Find accessibility issues on the active page and learn how to fix them.',
+  // Public signing key. Gives a stable extension id when loaded unpacked in
+  // development. Safe to commit (it is a public key). The matching private key
+  // (key.pem) is NOT committed. The Chrome Web Store assigns the production id
+  // independently when the listing is created.
+  key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4IcddEMgWoQr+KTDKkF1oHTtDqe6S//rLuhBdTSew1b/L1PcJQr0nGrmOStnh5LQoX7MKWo/oZRaGs+KW5lS4385rYk4JfvvULi6uWCWqhrrs3R+QygEILHbfUeDk3Zfz0j/fbcVdi2MrsKD89w4Na0Y56iCOXxxbofiZmwGpELRtLcRZk2QSYnhEi7ryFXaVRIJ12a3fpwwLgpvCT0oYRXl4khyYqXBCNc38UGPLNf8H1ozPbdGBnHSIFzWnP1DOTOQjuY1lt9b9oRVpKfeDjkbqmj2NpVNLdhgzPqF8NNBl8YZDo2Uw+cwNXRhbO96j6X+d1rKU6OB71Do4xYB6QIDAQAB',
+  // No host_permissions. Mend uses activeTab, so it has access to a page only
+  // when the user invokes it, and never any standing access to any site.
   permissions: ['activeTab', 'scripting', 'storage', 'sidePanel'],
-  host_permissions: ['<all_urls>'],
   icons: {
     '16': 'public/icons/icon-16.png',
     '32': 'public/icons/icon-32.png',
@@ -26,13 +32,6 @@ export default defineManifest({
     service_worker: 'src/background/service-worker.ts',
     type: 'module',
   },
-  content_scripts: [
-    {
-      matches: ['<all_urls>'],
-      js: ['src/content/overlay.ts'],
-      run_at: 'document_idle',
-    },
-  ],
   commands: {
     _execute_action: {
       suggested_key: { default: 'Ctrl+Shift+A', mac: 'Command+Shift+A' },
@@ -40,7 +39,8 @@ export default defineManifest({
     },
   },
   // The engine is injected into the page's MAIN world via executeScript({ files }),
-  // which requires it to be web-accessible. crxjs merges this with its own entries.
+  // which requires it to be web-accessible. Under activeTab the script only loads
+  // on a tab the user has invoked Mend on.
   web_accessible_resources: [
     {
       matches: ['<all_urls>'],

@@ -62,7 +62,6 @@ export interface Settings {
   conformanceLevel: 'A' | 'AA' | 'AAA';
   thoroughness: 'quick' | 'standard' | 'deep';
   experimentalRules: boolean;
-  autoAuditOnTabChange: boolean;
   highlightStyle: 'outline' | 'overlay';
 }
 

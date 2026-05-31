@@ -138,6 +138,20 @@ function assertAuditable(url: string): void {
 const AUDIT_TIMEOUT_MS = 45_000;
 const FRAME_WAIT_MS = 15_000;
 
+/** True when executeScript was denied host access (the activeTab grant is missing). */
+function isPermissionError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /cannot access|host permission|activeTab|extension manifest|no tab with id|chrome:\/\//i.test(
+    msg,
+  );
+}
+
+function needsInvocationError(): Error {
+  return new Error(
+    'Mend needs permission for this tab. Click the Mend icon in your toolbar to grant access to this page, then run the audit again.',
+  );
+}
+
 export async function runAudit(tabId: number): Promise<AuditResult> {
   const tab = await chrome.tabs.get(tabId);
   const url = tab.url ?? '';
@@ -163,6 +177,10 @@ export async function runAudit(tabId: number): Promise<AuditResult> {
       partial = true;
     }
   } catch (frameErr) {
+    // If access was denied, this is the activeTab grant missing for this tab
+    // (e.g. the user opened the panel on one tab then switched). Guide them to
+    // re-grant rather than showing a dead-end error.
+    if (isPermissionError(frameErr)) throw needsInvocationError();
     console.warn('[mend] all-frames injection failed; retrying top frame only.', frameErr);
     partial = true;
     try {
@@ -171,7 +189,8 @@ export async function runAudit(tabId: number): Promise<AuditResult> {
         world: 'MAIN',
         files: ['vendor/axe.min.js'],
       });
-    } catch {
+    } catch (topErr) {
+      if (isPermissionError(topErr)) throw needsInvocationError();
       throw new Error("Mend couldn't load on this page. Try reloading the tab and running again.");
     }
   }

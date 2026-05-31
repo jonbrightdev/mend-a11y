@@ -9,11 +9,6 @@ export type PanelMessage =
   | { type: 'GET_SETTINGS' }
   | { type: 'SET_SETTINGS'; settings: Settings };
 
-/** Messages the service worker forwards to the content script. */
-export type ContentMessage =
-  | { type: 'HIGHLIGHT'; selector: string }
-  | { type: 'CLEAR_HIGHLIGHT' };
-
 export type RunAuditResponse =
   | { ok: true; result: AuditResult }
   | { ok: false; error: string };
