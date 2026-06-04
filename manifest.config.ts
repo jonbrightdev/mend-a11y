@@ -6,11 +6,12 @@ export default defineManifest({
   name: 'Mend: Accessibility Audit',
   version: pkg.version,
   description: 'Find accessibility issues on the active page and learn how to fix them.',
-  // Public signing key. Gives a stable extension id when loaded unpacked in
-  // development. Safe to commit (it is a public key). The matching private key
-  // (key.pem) is NOT committed. The Chrome Web Store assigns the production id
-  // independently when the listing is created.
-  key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4IcddEMgWoQr+KTDKkF1oHTtDqe6S//rLuhBdTSew1b/L1PcJQr0nGrmOStnh5LQoX7MKWo/oZRaGs+KW5lS4385rYk4JfvvULi6uWCWqhrrs3R+QygEILHbfUeDk3Zfz0j/fbcVdi2MrsKD89w4Na0Y56iCOXxxbofiZmwGpELRtLcRZk2QSYnhEi7ryFXaVRIJ12a3fpwwLgpvCT0oYRXl4khyYqXBCNc38UGPLNf8H1ozPbdGBnHSIFzWnP1DOTOQjuY1lt9b9oRVpKfeDjkbqmj2NpVNLdhgzPqF8NNBl8YZDo2Uw+cwNXRhbO96j6X+d1rKU6OB71Do4xYB6QIDAQAB',
+  // No `key` field. The Chrome Web Store assigns and manages this item's
+  // identity (id and signing key) itself; embedding our own key makes the
+  // uploaded package mismatch the published item, and the upload is rejected
+  // with "key field value doesn't match the current item". A `key` is only
+  // useful for self-distributed .crx files or a stable unpacked-dev id, neither
+  // of which we depend on now that the store is the distribution channel.
   // No host_permissions. Mend uses activeTab, so it has access to a page only
   // when the user invokes it, and never any standing access to any site.
   permissions: ['activeTab', 'scripting', 'storage', 'sidePanel'],

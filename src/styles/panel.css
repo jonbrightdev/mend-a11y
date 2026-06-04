@@ -203,6 +203,20 @@ pre {
   background: var(--ap-surface-sunk);
   color: var(--ap-fg);
 }
+.icon-btn.is-active {
+  background: var(--ap-accent);
+  color: #fff;
+  border-color: var(--ap-accent);
+}
+.icon-btn.is-active:hover {
+  background: var(--ap-accent-hover);
+  color: #fff;
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
 
 /* ---------- empty / running / pass shared ---------- */
 .center-stage {

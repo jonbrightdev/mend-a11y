@@ -147,3 +147,17 @@ export const EyeOffIcon = ({ size = 15, ...r }: IconProps) =>
     size,
     r,
   );
+
+export const TextSpacingIcon = ({ size = 16, ...r }: IconProps) =>
+  svg(
+    <>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h11" />
+      <path d="M19 14v6" />
+      <path d="m17 15.5 2-1.5 2 1.5" />
+      <path d="m17 18.5 2 1.5 2-1.5" />
+    </>,
+    size,
+    r,
+  );

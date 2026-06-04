@@ -5,6 +5,7 @@ import {
   sendToWorker,
   type RunAuditResponse,
   type SettingsResponse,
+  type TextSpacingResponse,
 } from '../lib/messages';
 import { DEFAULT_SETTINGS } from '../lib/storage';
 import { defaultFilters, type FilterState } from './screens/filterState';
@@ -12,7 +13,7 @@ import { EmptyScreen } from './screens/EmptyScreen';
 import { RunningScreen } from './screens/RunningScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { PassScreen } from './screens/PassScreen';
-import { SettingsIcon } from './components/Icon';
+import { SettingsIcon, TextSpacingIcon } from './components/Icon';
 import { announce } from './hooks/a11y';
 import { useThemeClass } from './hooks/theme';
 import { useActiveTab } from './hooks/activeTab';
@@ -46,6 +47,7 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [allSites, setAllSites] = useState(false);
+  const [textSpacing, setTextSpacing] = useState(false);
 
   useThemeClass(settings.theme);
   const active = useActiveTab();
@@ -123,6 +125,26 @@ export function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabId, active.loading, result]);
+
+  // Keep the text-spacing toggle in sync with the active tab. The emulation is
+  // per-page, so switching tabs reflects whatever that tab's state is.
+  useEffect(() => {
+    if (tabId == null) {
+      setTextSpacing(false);
+      return;
+    }
+    let cancelled = false;
+    void sendToWorker<TextSpacingResponse>({ type: 'GET_TEXT_SPACING', tabId })
+      .then((res) => {
+        if (!cancelled) setTextSpacing(res.ok ? res.enabled : false);
+      })
+      .catch(() => {
+        if (!cancelled) setTextSpacing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tabId]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -249,6 +271,27 @@ export function App() {
     if (tabId != null) void sendToWorker({ type: 'CLEAR_HIGHLIGHT', tabId });
   }, [tabId]);
 
+  const toggleTextSpacing = useCallback(async () => {
+    if (tabId == null) return;
+    const next = !textSpacing;
+    setTextSpacing(next); // optimistic; revert if the worker reports failure
+    const res = await sendToWorker<TextSpacingResponse>({
+      type: 'SET_TEXT_SPACING',
+      tabId,
+      enabled: next,
+    });
+    if (!res.ok) {
+      setTextSpacing(!next);
+      showToast(res.error);
+      return;
+    }
+    announce(
+      next
+        ? 'Text spacing applied. Check the page for clipped or overlapping text.'
+        : 'Text spacing removed.',
+    );
+  }, [tabId, textSpacing, showToast]);
+
   // Clear any page overlay when leaving the detail view.
   useEffect(() => {
     if (route !== 'detail') clearHighlight();
@@ -267,6 +310,16 @@ export function App() {
           Mend
         </span>
         <span class="spacer" />
+        <button
+          class={`icon-btn${textSpacing ? ' is-active' : ''}`}
+          aria-label="Emulate WCAG text spacing"
+          aria-pressed={textSpacing}
+          title="Emulate WCAG 1.4.12 text spacing"
+          disabled={tabId == null}
+          onClick={() => void toggleTextSpacing()}
+        >
+          <TextSpacingIcon />
+        </button>
         <button class="icon-btn" aria-label="Settings" onClick={() => setShowSettings(true)}>
           <SettingsIcon />
         </button>

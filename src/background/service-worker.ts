@@ -2,6 +2,12 @@ import { runAudit } from '../lib/audit';
 import type { PanelMessage } from '../lib/messages';
 import { HIGHLIGHT_ACCENT, clearHighlightInPage, highlightInPage } from '../lib/highlight';
 import {
+  TEXT_SPACING_CSS,
+  TEXT_SPACING_STYLE_ID,
+  applyTextSpacingInPage,
+  removeTextSpacingInPage,
+} from '../lib/textSpacing';
+import {
   clearCachedAudit,
   getCachedAudit,
   getSettings,
@@ -52,11 +58,37 @@ function clearHighlightOn(tabId: number): void {
     .catch(() => {});
 }
 
+// Per-tab text-spacing emulation state, also session-backed. The injected style
+// is per-page and is removed on reload, so this record is cleared on navigation
+// and tab close to stay in sync with what's actually on the page.
+function tsKey(tabId: number): string {
+  return `ts:${tabId}`;
+}
+
+async function setTextSpacingTab(tabId: number, on: boolean): Promise<void> {
+  try {
+    if (on) await chrome.storage.session.set({ [tsKey(tabId)]: true });
+    else await chrome.storage.session.remove(tsKey(tabId));
+  } catch {
+    /* ignore */
+  }
+}
+
+async function getTextSpacingTab(tabId: number): Promise<boolean> {
+  try {
+    const got = await chrome.storage.session.get(tsKey(tabId));
+    return got[tsKey(tabId)] === true;
+  } catch {
+    return false;
+  }
+}
+
 // Drop cached results when a tab starts navigating so we never show stale data,
 // and forget any overlay we had on it (the navigation tears the overlay down).
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
     void clearCachedAudit(tabId);
+    void setTextSpacingTab(tabId, false);
     void getHighlightTab().then((id) => {
       if (id === tabId) void setHighlightTab(null);
     });
@@ -66,6 +98,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 // Tidy the per-tab cache when a tab closes so ids don't accumulate stale audits.
 chrome.tabs.onRemoved.addListener((tabId) => {
   void clearCachedAudit(tabId);
+  void setTextSpacingTab(tabId, false);
   void getHighlightTab().then((id) => {
     if (id === tabId) void setHighlightTab(null);
   });
@@ -131,6 +164,40 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
         })
         .catch(() => {});
       return { ok: true };
+    }
+    case 'SET_TEXT_SPACING': {
+      try {
+        if (message.enabled) {
+          await chrome.scripting.executeScript({
+            target: { tabId: message.tabId },
+            func: applyTextSpacingInPage,
+            args: [TEXT_SPACING_CSS, TEXT_SPACING_STYLE_ID],
+          });
+        } else {
+          await chrome.scripting.executeScript({
+            target: { tabId: message.tabId },
+            func: removeTextSpacingInPage,
+            args: [TEXT_SPACING_STYLE_ID],
+          });
+        }
+        await setTextSpacingTab(message.tabId, message.enabled);
+        return { ok: true, enabled: message.enabled };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // No grant on this tab (e.g. panel opened on another tab and switched).
+        const denied = /cannot access|host permission|activeTab|must request permission|not in effect|has not been invoked/i.test(
+          msg,
+        );
+        return {
+          ok: false,
+          error: denied
+            ? 'Click the Mend icon on this tab first, then try again.'
+            : "Mend couldn't change spacing on this page. Try reloading and again.",
+        };
+      }
+    }
+    case 'GET_TEXT_SPACING': {
+      return { ok: true, enabled: await getTextSpacingTab(message.tabId) };
     }
     default:
       return { ok: false, error: 'Unknown message' };
