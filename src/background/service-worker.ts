@@ -7,6 +7,7 @@ import {
   applyTextSpacingInPage,
   removeTextSpacingInPage,
 } from '../lib/textSpacing';
+import { FOCUS_ORDER_ACCENT, clearFocusOrderInPage, showFocusOrderInPage } from '../lib/focusOrder';
 import {
   clearCachedAudit,
   getCachedAudit,
@@ -83,12 +84,38 @@ async function getTextSpacingTab(tabId: number): Promise<boolean> {
   }
 }
 
+// Per-tab focus-order overlay state, session-backed like text spacing. The
+// overlay is per-page and torn down on reload, so this is cleared on navigation
+// and tab close to stay in sync with what's actually on the page.
+function foKey(tabId: number): string {
+  return `fo:${tabId}`;
+}
+
+async function setFocusOrderTab(tabId: number, on: boolean): Promise<void> {
+  try {
+    if (on) await chrome.storage.session.set({ [foKey(tabId)]: true });
+    else await chrome.storage.session.remove(foKey(tabId));
+  } catch {
+    /* ignore */
+  }
+}
+
+async function getFocusOrderTab(tabId: number): Promise<boolean> {
+  try {
+    const got = await chrome.storage.session.get(foKey(tabId));
+    return got[foKey(tabId)] === true;
+  } catch {
+    return false;
+  }
+}
+
 // Drop cached results when a tab starts navigating so we never show stale data,
 // and forget any overlay we had on it (the navigation tears the overlay down).
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
     void clearCachedAudit(tabId);
     void setTextSpacingTab(tabId, false);
+    void setFocusOrderTab(tabId, false);
     void getHighlightTab().then((id) => {
       if (id === tabId) void setHighlightTab(null);
     });
@@ -99,6 +126,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   void clearCachedAudit(tabId);
   void setTextSpacingTab(tabId, false);
+  void setFocusOrderTab(tabId, false);
   void getHighlightTab().then((id) => {
     if (id === tabId) void setHighlightTab(null);
   });
@@ -198,6 +226,39 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
     }
     case 'GET_TEXT_SPACING': {
       return { ok: true, enabled: await getTextSpacingTab(message.tabId) };
+    }
+    case 'SET_FOCUS_ORDER': {
+      try {
+        if (message.enabled) {
+          await chrome.scripting.executeScript({
+            target: { tabId: message.tabId },
+            func: showFocusOrderInPage,
+            args: [FOCUS_ORDER_ACCENT],
+          });
+        } else {
+          await chrome.scripting.executeScript({
+            target: { tabId: message.tabId },
+            func: clearFocusOrderInPage,
+          });
+        }
+        await setFocusOrderTab(message.tabId, message.enabled);
+        return { ok: true, enabled: message.enabled };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // No grant on this tab (e.g. panel opened on another tab and switched).
+        const denied = /cannot access|host permission|activeTab|must request permission|not in effect|has not been invoked/i.test(
+          msg,
+        );
+        return {
+          ok: false,
+          error: denied
+            ? 'Click the Mend icon on this tab first, then try again.'
+            : "Mend couldn't show the focus order on this page. Try reloading and again.",
+        };
+      }
+    }
+    case 'GET_FOCUS_ORDER': {
+      return { ok: true, enabled: await getFocusOrderTab(message.tabId) };
     }
     default:
       return { ok: false, error: 'Unknown message' };

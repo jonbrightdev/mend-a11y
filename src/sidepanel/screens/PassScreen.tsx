@@ -20,7 +20,7 @@ export function PassScreen({
 }) {
   return (
     <div class="center-stage">
-      <Pip class="pip--pass" />
+      <Pip variant="pass" class="pip--pass" />
       <span class="stamp">PASSED</span>
       <p class="lede">
         No automated WCAG issues found across {result.totalChecks.toLocaleString()} checks. A clean

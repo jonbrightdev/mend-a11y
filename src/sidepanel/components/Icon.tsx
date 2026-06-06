@@ -161,3 +161,14 @@ export const TextSpacingIcon = ({ size = 16, ...r }: IconProps) =>
     size,
     r,
   );
+
+export const FocusOrderIcon = ({ size = 16, ...r }: IconProps) =>
+  svg(
+    <>
+      <line x1="3" y1="12" x2="14" y2="12" />
+      <polyline points="10 8 14 12 10 16" />
+      <line x1="19" y1="6" x2="19" y2="18" />
+    </>,
+    size,
+    r,
+  );

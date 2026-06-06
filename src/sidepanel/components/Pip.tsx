@@ -6,7 +6,13 @@ import type { JSX } from 'preact';
  * on the dark side panel without recoloring. Decorative wrapper variants
  * (`float`) respect prefers-reduced-motion via CSS.
  */
-export function Pip({ class: className, ...rest }: JSX.SVGAttributes<SVGSVGElement>) {
+type PipVariant = 'default' | 'pass';
+
+export function Pip({
+  variant = 'default',
+  class: className,
+  ...rest
+}: JSX.SVGAttributes<SVGSVGElement> & { variant?: PipVariant }) {
   return (
     <svg
       class={`pip${className ? ` ${className}` : ''}`}
@@ -17,7 +23,9 @@ export function Pip({ class: className, ...rest }: JSX.SVGAttributes<SVGSVGEleme
     >
       <title id="pipTitle">Pip, the Mend inspector</title>
       <desc id="pipDesc">
-        A small round character with big round glasses, holding a clipboard with a checklist.
+        {variant === 'pass'
+          ? 'A small round character with big round glasses, holding a clipboard with a single green check mark.'
+          : 'A small round character with big round glasses, holding a clipboard with a checklist.'}
       </desc>
       <g fill="#f8f1e3" stroke="#c4502c" stroke-width="5" stroke-linejoin="round">
         <ellipse cx="106" cy="252" rx="21" ry="13" />
@@ -60,18 +68,33 @@ export function Pip({ class: className, ...rest }: JSX.SVGAttributes<SVGSVGEleme
       <g transform="rotate(9 192 168)">
         <rect x="152" y="116" width="80" height="104" rx="11" fill="#ffffff" stroke="#c4502c" stroke-width="5" />
         <rect x="178" y="108" width="28" height="16" rx="5" fill="#f8f1e3" stroke="#c4502c" stroke-width="5" />
-        <g stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <path d="M163 146 l 6 6 l 11 -13" stroke="#c4502c" stroke-width="4" />
-          <path d="M163 172 l 6 6 l 11 -13" stroke="#c4502c" stroke-width="4" />
-          <path d="M163 198 l 6 6 l 11 -13" stroke="#c4502c" stroke-width="4" />
-        </g>
-        <g stroke="#d6cdb6" stroke-width="5" stroke-linecap="round">
-          <path d="M188 148 L 218 148" />
-          <path d="M188 174 L 218 174" />
-          <path d="M188 200 L 214 200" />
-        </g>
+        {variant === 'pass' ? (
+          <path
+            d="M170 170 l 15 17 l 31 -40"
+            fill="none"
+            stroke="#3c5a23"
+            stroke-width="9"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        ) : (
+          <g>
+            <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+              <path d="M163 146 l 6 6 l 11 -13" stroke="#c4502c" stroke-width="4" />
+              <path d="M163 172 l 6 6 l 11 -13" stroke="#c4502c" stroke-width="4" />
+              <path d="M163 198 l 6 6 l 11 -13" stroke="#c4502c" stroke-width="4" />
+            </g>
+            <g stroke="#d6cdb6" stroke-width="5" stroke-linecap="round">
+              <path d="M188 148 L 218 148" />
+              <path d="M188 174 L 218 174" />
+              <path d="M188 200 L 214 200" />
+            </g>
+          </g>
+        )}
       </g>
-      <path d="M196 192 q 18 8 22 -6" fill="none" stroke="#c4502c" stroke-width="5" stroke-linecap="round" />
+      {variant !== 'pass' && (
+        <path d="M196 192 q 18 8 22 -6" fill="none" stroke="#c4502c" stroke-width="5" stroke-linecap="round" />
+      )}
     </svg>
   );
 }

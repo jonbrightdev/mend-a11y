@@ -823,16 +823,33 @@ pre.code {
 
 /* ---------- pass screen ---------- */
 .stamp {
+  --stamp-ink: var(--ap-pass-fg);
+  --stamp-mask: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2286%22%20height%3D%2234%22%3E%3Cfilter%20id%3D%22ink%22%20x%3D%220%22%20y%3D%220%22%20width%3D%22100%25%22%20height%3D%22100%25%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%220.055%200.085%22%20numOctaves%3D%223%22%20seed%3D%226%22%20stitchTiles%3D%22stitch%22%2F%3E%3CfeColorMatrix%20type%3D%22matrix%22%20values%3D%227.5%200%200%200%20-2.4%20%207.5%200%200%200%20-2.4%20%207.5%200%200%200%20-2.4%20%207.5%200%200%200%20-2.4%22%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%2286%22%20height%3D%2234%22%20filter%3D%22url(%23ink)%22%2F%3E%3C%2Fsvg%3E');
+  position: relative;
   display: inline-block;
-  border: 3px solid var(--ap-pass-fg);
-  color: var(--ap-pass-fg);
-  border-radius: 10px;
-  padding: 4px 16px;
+  color: var(--stamp-ink);
+  padding: 6px 19px;
   font-weight: 800;
-  letter-spacing: 0.12em;
-  font-size: 22px;
-  transform: rotate(-7deg);
-  opacity: 0.92;
+  font-size: 23px;
+  letter-spacing: 0.16em;
+  /* letter-spacing adds trailing space after the last glyph; nudge to re-centre */
+  text-indent: 0.16em;
+  text-transform: uppercase;
+  transform: rotate(-8deg);
+}
+/* The inked frame is eroded for the stamped-edge look; the word itself stays
+   crisp because only this pseudo-element carries the mask, not the text. */
+.stamp::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 3.5px solid var(--stamp-ink);
+  border-radius: 9px;
+  opacity: 0.9;
+  -webkit-mask-image: var(--stamp-mask);
+  mask-image: var(--stamp-mask);
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
 }
 .pass-pills {
   display: flex;

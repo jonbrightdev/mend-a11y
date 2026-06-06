@@ -6,6 +6,7 @@ import {
   type RunAuditResponse,
   type SettingsResponse,
   type TextSpacingResponse,
+  type FocusOrderResponse,
 } from '../lib/messages';
 import { DEFAULT_SETTINGS } from '../lib/storage';
 import { defaultFilters, type FilterState } from './screens/filterState';
@@ -13,7 +14,7 @@ import { EmptyScreen } from './screens/EmptyScreen';
 import { RunningScreen } from './screens/RunningScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { PassScreen } from './screens/PassScreen';
-import { SettingsIcon, TextSpacingIcon } from './components/Icon';
+import { FocusOrderIcon, SettingsIcon, TextSpacingIcon } from './components/Icon';
 import { announce } from './hooks/a11y';
 import { useThemeClass } from './hooks/theme';
 import { useActiveTab } from './hooks/activeTab';
@@ -48,6 +49,7 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [allSites, setAllSites] = useState(false);
   const [textSpacing, setTextSpacing] = useState(false);
+  const [focusOrder, setFocusOrder] = useState(false);
 
   useThemeClass(settings.theme);
   const active = useActiveTab();
@@ -140,6 +142,25 @@ export function App() {
       })
       .catch(() => {
         if (!cancelled) setTextSpacing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tabId]);
+
+  // Same for the focus-order overlay: per-page, so it tracks the active tab.
+  useEffect(() => {
+    if (tabId == null) {
+      setFocusOrder(false);
+      return;
+    }
+    let cancelled = false;
+    void sendToWorker<FocusOrderResponse>({ type: 'GET_FOCUS_ORDER', tabId })
+      .then((res) => {
+        if (!cancelled) setFocusOrder(res.ok ? res.enabled : false);
+      })
+      .catch(() => {
+        if (!cancelled) setFocusOrder(false);
       });
     return () => {
       cancelled = true;
@@ -292,6 +313,27 @@ export function App() {
     );
   }, [tabId, textSpacing, showToast]);
 
+  const toggleFocusOrder = useCallback(async () => {
+    if (tabId == null) return;
+    const next = !focusOrder;
+    setFocusOrder(next); // optimistic; revert if the worker reports failure
+    const res = await sendToWorker<FocusOrderResponse>({
+      type: 'SET_FOCUS_ORDER',
+      tabId,
+      enabled: next,
+    });
+    if (!res.ok) {
+      setFocusOrder(!next);
+      showToast(res.error);
+      return;
+    }
+    announce(
+      next
+        ? 'Focus order shown. Numbered badges mark each keyboard stop in order.'
+        : 'Focus order hidden.',
+    );
+  }, [tabId, focusOrder, showToast]);
+
   // Clear any page overlay when leaving the detail view.
   useEffect(() => {
     if (route !== 'detail') clearHighlight();
@@ -310,6 +352,16 @@ export function App() {
           Mend
         </span>
         <span class="spacer" />
+        <button
+          class={`icon-btn${focusOrder ? ' is-active' : ''}`}
+          aria-label="Show keyboard focus order"
+          aria-pressed={focusOrder}
+          title="Show the keyboard focus order on the page"
+          disabled={tabId == null}
+          onClick={() => void toggleFocusOrder()}
+        >
+          <FocusOrderIcon />
+        </button>
         <button
           class={`icon-btn${textSpacing ? ' is-active' : ''}`}
           aria-label="Emulate WCAG text spacing"

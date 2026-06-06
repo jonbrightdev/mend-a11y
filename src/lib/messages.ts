@@ -8,6 +8,8 @@ export type PanelMessage =
   | { type: 'CLEAR_HIGHLIGHT'; tabId: number }
   | { type: 'SET_TEXT_SPACING'; tabId: number; enabled: boolean }
   | { type: 'GET_TEXT_SPACING'; tabId: number }
+  | { type: 'SET_FOCUS_ORDER'; tabId: number; enabled: boolean }
+  | { type: 'GET_FOCUS_ORDER'; tabId: number }
   | { type: 'GET_SETTINGS' }
   | { type: 'SET_SETTINGS'; settings: Settings };
 
@@ -19,6 +21,9 @@ export type CachedAuditResponse = { result: AuditResult | null };
 export type SettingsResponse = { settings: Settings };
 export type AckResponse = { ok: boolean };
 export type TextSpacingResponse =
+  | { ok: true; enabled: boolean }
+  | { ok: false; error: string };
+export type FocusOrderResponse =
   | { ok: true; enabled: boolean }
   | { ok: false; error: string };
 

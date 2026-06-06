@@ -34,11 +34,23 @@ warning.
 
 ## Build and package
 
-- [ ] `npm ci && npm run build`
-- [ ] Zip the `dist/` directory contents (not the folder itself):
-      `cd dist && zip -qr ../mend-a11y-dist.zip .`
+For a new version, a bump does the whole thing. `npm version` requires a clean
+working tree, so commit your changes first.
+
+- [ ] `npm version patch` (or `minor` / `major`). This runs a production build
+      and the unit tests first (preversion), so a broken tree is never tagged;
+      then bumps `package.json` and the lockfile, commits, and tags `vX.Y.Z` to
+      match the existing tags; then rebuilds at the new version and writes
+      `mend-a11y-<version>.zip` to the repo root (postversion). The manifest
+      version derives from `package.json`, so it follows automatically.
+- [ ] `git push --follow-tags` to publish the commit and its tag.
 - [ ] Upload that zip in the dashboard. Note: Chrome assigns its own production
       extension id and ignores the `key` field in the manifest; that's expected.
+
+To rebuild the upload zip without bumping (a clean reinstall, or a build-only
+fix), run `npm ci` then `npm run prod`. The package step puts `manifest.json` at
+the zip root, refuses to ship a `key` field or a version that drifts from
+`package.json`, and excludes source maps.
 
 ---
 
@@ -138,6 +150,7 @@ uses no third parties.
 
 ## After approval
 
-- [ ] Tag the release in git and attach the zip to the GitHub release.
+- [ ] Push the release tag if you have not already (`git push --follow-tags`),
+      and attach the `mend-a11y-<version>.zip` to the GitHub release.
 - [ ] Add the published Chrome Web Store URL to `README.md` and the marketing
       site's "Add to Chrome" button.

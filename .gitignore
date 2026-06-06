@@ -28,3 +28,5 @@ npm-debug.log*
 key.pem
 *.pem
 .pubkey.b64
+
+mend-a11y-*.zip
