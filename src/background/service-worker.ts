@@ -8,6 +8,7 @@ import {
   removeTextSpacingInPage,
 } from '../lib/textSpacing';
 import { FOCUS_ORDER_ACCENT, clearFocusOrderInPage, showFocusOrderInPage } from '../lib/focusOrder';
+import { extractOutlineInPage, type OutlineData } from '../lib/outline';
 import {
   clearCachedAudit,
   getCachedAudit,
@@ -259,6 +260,29 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
     }
     case 'GET_FOCUS_ORDER': {
       return { ok: true, enabled: await getFocusOrderTab(message.tabId) };
+    }
+    case 'GET_OUTLINE': {
+      try {
+        const injection = await chrome.scripting.executeScript({
+          target: { tabId: message.tabId },
+          func: extractOutlineInPage,
+        });
+        const data = injection[0]?.result as OutlineData | undefined;
+        if (!data) throw new Error('No outline returned');
+        return { ok: true, data };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // No grant on this tab (e.g. panel opened on another tab and switched).
+        const denied = /cannot access|host permission|activeTab|must request permission|not in effect|has not been invoked/i.test(
+          msg,
+        );
+        return {
+          ok: false,
+          error: denied
+            ? 'Click the Mend icon on this tab first, then try again.'
+            : "Mend couldn't read the page structure. Try reloading and again.",
+        };
+      }
     }
     default:
       return { ok: false, error: 'Unknown message' };

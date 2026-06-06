@@ -172,3 +172,17 @@ export const FocusOrderIcon = ({ size = 16, ...r }: IconProps) =>
     size,
     r,
   );
+
+export const OutlineIcon = ({ size = 16, ...r }: IconProps) =>
+  svg(
+    <>
+      <circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none" />
+      <line x1="9" y1="6" x2="20" y2="6" />
+      <circle cx="8" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <line x1="13" y1="12" x2="20" y2="12" />
+      <circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none" />
+      <line x1="9" y1="18" x2="20" y2="18" />
+    </>,
+    size,
+    r,
+  );

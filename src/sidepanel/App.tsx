@@ -14,7 +14,7 @@ import { EmptyScreen } from './screens/EmptyScreen';
 import { RunningScreen } from './screens/RunningScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { PassScreen } from './screens/PassScreen';
-import { FocusOrderIcon, SettingsIcon, TextSpacingIcon } from './components/Icon';
+import { FocusOrderIcon, OutlineIcon, SettingsIcon, TextSpacingIcon } from './components/Icon';
 import { announce } from './hooks/a11y';
 import { useThemeClass } from './hooks/theme';
 import { useActiveTab } from './hooks/activeTab';
@@ -28,6 +28,9 @@ const FiltersScreen = lazy(() =>
 );
 const SettingsScreen = lazy(() =>
   import('./screens/SettingsScreen').then((m) => ({ default: m.SettingsScreen })),
+);
+const OutlineScreen = lazy(() =>
+  import('./screens/OutlineScreen').then((m) => ({ default: m.OutlineScreen })),
 );
 
 type Route = 'empty' | 'running' | 'results' | 'pass' | 'detail';
@@ -50,6 +53,7 @@ export function App() {
   const [allSites, setAllSites] = useState(false);
   const [textSpacing, setTextSpacing] = useState(false);
   const [focusOrder, setFocusOrder] = useState(false);
+  const [showOutline, setShowOutline] = useState(false);
 
   useThemeClass(settings.theme);
   const active = useActiveTab();
@@ -353,6 +357,17 @@ export function App() {
         </span>
         <span class="spacer" />
         <button
+          class={`icon-btn${showOutline ? ' is-active' : ''}`}
+          aria-label="Show page outline"
+          aria-haspopup="dialog"
+          aria-expanded={showOutline}
+          title="Show the heading and landmark outline"
+          disabled={tabId == null}
+          onClick={() => setShowOutline(true)}
+        >
+          <OutlineIcon />
+        </button>
+        <button
           class={`icon-btn${focusOrder ? ' is-active' : ''}`}
           aria-label="Show keyboard focus order"
           aria-pressed={focusOrder}
@@ -450,6 +465,19 @@ export function App() {
             onClose={() => setShowSettings(false)}
             allSites={allSites}
             onToggleAllSites={(next) => void toggleAllSites(next)}
+          />
+        </Suspense>
+      )}
+
+      {showOutline && (
+        <Suspense fallback={null}>
+          <OutlineScreen
+            tabId={tabId}
+            onClose={() => {
+              clearHighlight();
+              setShowOutline(false);
+            }}
+            onLocate={highlight}
           />
         </Suspense>
       )}
