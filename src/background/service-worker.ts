@@ -23,6 +23,7 @@ import {
   getSettings,
   setSettings,
 } from '../lib/storage';
+import { clearHelperEverywhere, perTabState } from '../lib/tabState';
 
 // Open the side panel from the action click. Doing this in onClicked (rather
 // than via openPanelOnActionClick) means the click confers the activeTab grant
@@ -68,37 +69,32 @@ function clearHighlightOn(tabId: number): void {
     .catch(() => {});
 }
 
-// Per-tab helper state, session-backed. Each helper writes its effect directly
-// into the page (an injected style or overlay) that the browser tears down on
-// reload, so these records are cleared on navigation and tab close to stay in
-// sync with what is actually on the page. The value is `true` for on/off helpers
-// (text spacing, focus order) or a mode string for the vision simulation;
-// absent means off.
-function perTabState<T extends string | true>(prefix: string) {
-  const key = (tabId: number): string => `${prefix}:${tabId}`;
-  return {
-    async set(tabId: number, value: T | null): Promise<void> {
-      try {
-        if (value == null) await chrome.storage.session.remove(key(tabId));
-        else await chrome.storage.session.set({ [key(tabId)]: value });
-      } catch {
-        /* ignore */
-      }
-    },
-    async get(tabId: number): Promise<T | null> {
-      try {
-        const got = await chrome.storage.session.get(key(tabId));
-        return (got[key(tabId)] ?? null) as T | null;
-      } catch {
-        return null;
-      }
-    },
-  };
-}
-
+// Per-tab helper state lives in chrome.storage.session (see lib/tabState). Each
+// helper writes its effect directly into the page (an injected style, overlay,
+// or filter) that the browser tears down on reload, so these records are cleared
+// on navigation, tab close, and panel close to stay in sync with the page.
 const textSpacing = perTabState<true>('ts');
 const focusOrder = perTabState<true>('fo');
 const vision = perTabState<string>('vs');
+
+// Best-effort reverts for a single tab, mirroring clearHighlightOn: fire the
+// helper's injected remove and swallow errors (the tab may have navigated or
+// closed). Used by the panel-close teardown.
+function removeTextSpacingOn(tabId: number): void {
+  chrome.scripting
+    .executeScript({ target: { tabId }, func: removeTextSpacingInPage, args: [TEXT_SPACING_STYLE_ID] })
+    .catch(() => {});
+}
+
+function clearFocusOrderOn(tabId: number): void {
+  chrome.scripting.executeScript({ target: { tabId }, func: clearFocusOrderInPage }).catch(() => {});
+}
+
+function removeVisionOn(tabId: number): void {
+  chrome.scripting
+    .executeScript({ target: { tabId }, func: removeVisionInPage, args: [VISION_DEFS_ID, VISION_STYLE_ID] })
+    .catch(() => {});
+}
 
 // Shared error mapping for the page-mutating helpers: a missing host grant on
 // this tab (e.g. the panel was opened on another tab and switched) gets the
@@ -140,8 +136,11 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // The panel opens a long-lived port on mount. When the panel closes, the port
-// disconnects and we clear any overlay still drawn on the page. Reading the id
-// from session storage means this works even if the worker restarted meanwhile.
+// disconnects and we clear everything the panel had drawn on a page so nothing
+// lingers once the user keeps browsing: the highlight box (one tab), and the
+// text-spacing, focus-order, and vision effects (each possibly on several tabs
+// in all-sites mode). Reading ids from session storage means this works even if
+// the worker restarted meanwhile.
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'mend-panel') return;
   port.onDisconnect.addListener(() => {
@@ -151,6 +150,9 @@ chrome.runtime.onConnect.addListener((port) => {
         void setHighlightTab(null);
       }
     });
+    void clearHelperEverywhere(textSpacing, removeTextSpacingOn);
+    void clearHelperEverywhere(focusOrder, clearFocusOrderOn);
+    void clearHelperEverywhere(vision, removeVisionOn);
   });
 });
 
