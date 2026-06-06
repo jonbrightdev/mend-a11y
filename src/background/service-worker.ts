@@ -10,6 +10,14 @@ import {
 import { FOCUS_ORDER_ACCENT, clearFocusOrderInPage, showFocusOrderInPage } from '../lib/focusOrder';
 import { extractOutlineInPage, type OutlineData } from '../lib/outline';
 import {
+  VISION_DEFS_ID,
+  VISION_STYLE_ID,
+  applyVisionInPage,
+  removeVisionInPage,
+  visionMarkup,
+  type VisionMode,
+} from '../lib/vision';
+import {
   clearCachedAudit,
   getCachedAudit,
   getSettings,
@@ -60,54 +68,50 @@ function clearHighlightOn(tabId: number): void {
     .catch(() => {});
 }
 
-// Per-tab text-spacing emulation state, also session-backed. The injected style
-// is per-page and is removed on reload, so this record is cleared on navigation
-// and tab close to stay in sync with what's actually on the page.
-function tsKey(tabId: number): string {
-  return `ts:${tabId}`;
+// Per-tab helper state, session-backed. Each helper writes its effect directly
+// into the page (an injected style or overlay) that the browser tears down on
+// reload, so these records are cleared on navigation and tab close to stay in
+// sync with what is actually on the page. The value is `true` for on/off helpers
+// (text spacing, focus order) or a mode string for the vision simulation;
+// absent means off.
+function perTabState<T extends string | true>(prefix: string) {
+  const key = (tabId: number): string => `${prefix}:${tabId}`;
+  return {
+    async set(tabId: number, value: T | null): Promise<void> {
+      try {
+        if (value == null) await chrome.storage.session.remove(key(tabId));
+        else await chrome.storage.session.set({ [key(tabId)]: value });
+      } catch {
+        /* ignore */
+      }
+    },
+    async get(tabId: number): Promise<T | null> {
+      try {
+        const got = await chrome.storage.session.get(key(tabId));
+        return (got[key(tabId)] ?? null) as T | null;
+      } catch {
+        return null;
+      }
+    },
+  };
 }
 
-async function setTextSpacingTab(tabId: number, on: boolean): Promise<void> {
-  try {
-    if (on) await chrome.storage.session.set({ [tsKey(tabId)]: true });
-    else await chrome.storage.session.remove(tsKey(tabId));
-  } catch {
-    /* ignore */
-  }
-}
+const textSpacing = perTabState<true>('ts');
+const focusOrder = perTabState<true>('fo');
+const vision = perTabState<string>('vs');
 
-async function getTextSpacingTab(tabId: number): Promise<boolean> {
-  try {
-    const got = await chrome.storage.session.get(tsKey(tabId));
-    return got[tsKey(tabId)] === true;
-  } catch {
-    return false;
-  }
-}
-
-// Per-tab focus-order overlay state, session-backed like text spacing. The
-// overlay is per-page and torn down on reload, so this is cleared on navigation
-// and tab close to stay in sync with what's actually on the page.
-function foKey(tabId: number): string {
-  return `fo:${tabId}`;
-}
-
-async function setFocusOrderTab(tabId: number, on: boolean): Promise<void> {
-  try {
-    if (on) await chrome.storage.session.set({ [foKey(tabId)]: true });
-    else await chrome.storage.session.remove(foKey(tabId));
-  } catch {
-    /* ignore */
-  }
-}
-
-async function getFocusOrderTab(tabId: number): Promise<boolean> {
-  try {
-    const got = await chrome.storage.session.get(foKey(tabId));
-    return got[foKey(tabId)] === true;
-  } catch {
-    return false;
-  }
+// Shared error mapping for the page-mutating helpers: a missing host grant on
+// this tab (e.g. the panel was opened on another tab and switched) gets the
+// "click the icon" hint; anything else gets the helper's own fallback message.
+function mapDeniedError(e: unknown, fallback: string): { ok: false; error: string } {
+  const msg = e instanceof Error ? e.message : String(e);
+  const denied = /cannot access|host permission|activeTab|must request permission|not in effect|has not been invoked/i.test(
+    msg,
+  );
+  return {
+    ok: false,
+    error: denied ? 'Click the Mend icon on this tab first, then try again.' : fallback,
+  };
 }
 
 // Drop cached results when a tab starts navigating so we never show stale data,
@@ -115,8 +119,9 @@ async function getFocusOrderTab(tabId: number): Promise<boolean> {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
     void clearCachedAudit(tabId);
-    void setTextSpacingTab(tabId, false);
-    void setFocusOrderTab(tabId, false);
+    void textSpacing.set(tabId, null);
+    void focusOrder.set(tabId, null);
+    void vision.set(tabId, null);
     void getHighlightTab().then((id) => {
       if (id === tabId) void setHighlightTab(null);
     });
@@ -126,8 +131,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 // Tidy the per-tab cache when a tab closes so ids don't accumulate stale audits.
 chrome.tabs.onRemoved.addListener((tabId) => {
   void clearCachedAudit(tabId);
-  void setTextSpacingTab(tabId, false);
-  void setFocusOrderTab(tabId, false);
+  void textSpacing.set(tabId, null);
+  void focusOrder.set(tabId, null);
+  void vision.set(tabId, null);
   void getHighlightTab().then((id) => {
     if (id === tabId) void setHighlightTab(null);
   });
@@ -209,24 +215,14 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
             args: [TEXT_SPACING_STYLE_ID],
           });
         }
-        await setTextSpacingTab(message.tabId, message.enabled);
+        await textSpacing.set(message.tabId, message.enabled ? true : null);
         return { ok: true, enabled: message.enabled };
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        // No grant on this tab (e.g. panel opened on another tab and switched).
-        const denied = /cannot access|host permission|activeTab|must request permission|not in effect|has not been invoked/i.test(
-          msg,
-        );
-        return {
-          ok: false,
-          error: denied
-            ? 'Click the Mend icon on this tab first, then try again.'
-            : "Mend couldn't change spacing on this page. Try reloading and again.",
-        };
+        return mapDeniedError(e, "Mend couldn't change spacing on this page. Try reloading and again.");
       }
     }
     case 'GET_TEXT_SPACING': {
-      return { ok: true, enabled: await getTextSpacingTab(message.tabId) };
+      return { ok: true, enabled: (await textSpacing.get(message.tabId)) === true };
     }
     case 'SET_FOCUS_ORDER': {
       try {
@@ -242,24 +238,17 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
             func: clearFocusOrderInPage,
           });
         }
-        await setFocusOrderTab(message.tabId, message.enabled);
+        await focusOrder.set(message.tabId, message.enabled ? true : null);
         return { ok: true, enabled: message.enabled };
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        // No grant on this tab (e.g. panel opened on another tab and switched).
-        const denied = /cannot access|host permission|activeTab|must request permission|not in effect|has not been invoked/i.test(
-          msg,
+        return mapDeniedError(
+          e,
+          "Mend couldn't show the focus order on this page. Try reloading and again.",
         );
-        return {
-          ok: false,
-          error: denied
-            ? 'Click the Mend icon on this tab first, then try again.'
-            : "Mend couldn't show the focus order on this page. Try reloading and again.",
-        };
       }
     }
     case 'GET_FOCUS_ORDER': {
-      return { ok: true, enabled: await getFocusOrderTab(message.tabId) };
+      return { ok: true, enabled: (await focusOrder.get(message.tabId)) === true };
     }
     case 'GET_OUTLINE': {
       try {
@@ -271,18 +260,37 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
         if (!data) throw new Error('No outline returned');
         return { ok: true, data };
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        // No grant on this tab (e.g. panel opened on another tab and switched).
-        const denied = /cannot access|host permission|activeTab|must request permission|not in effect|has not been invoked/i.test(
-          msg,
-        );
-        return {
-          ok: false,
-          error: denied
-            ? 'Click the Mend icon on this tab first, then try again.'
-            : "Mend couldn't read the page structure. Try reloading and again.",
-        };
+        return mapDeniedError(e, "Mend couldn't read the page structure. Try reloading and again.");
       }
+    }
+    case 'SET_VISION': {
+      try {
+        if (message.mode) {
+          const { svg, css } = visionMarkup(message.mode);
+          await chrome.scripting.executeScript({
+            target: { tabId: message.tabId },
+            func: applyVisionInPage,
+            args: [svg, css, VISION_DEFS_ID, VISION_STYLE_ID],
+          });
+        } else {
+          await chrome.scripting.executeScript({
+            target: { tabId: message.tabId },
+            func: removeVisionInPage,
+            args: [VISION_DEFS_ID, VISION_STYLE_ID],
+          });
+        }
+        await vision.set(message.tabId, message.mode);
+        return { ok: true, mode: message.mode };
+      } catch (e: unknown) {
+        return mapDeniedError(
+          e,
+          "Mend couldn't apply the vision simulation on this page. Try reloading and again.",
+        );
+      }
+    }
+    case 'GET_VISION': {
+      const mode = (await vision.get(message.tabId)) as VisionMode | null;
+      return { ok: true, mode };
     }
     default:
       return { ok: false, error: 'Unknown message' };

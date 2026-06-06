@@ -7,6 +7,7 @@ import {
   type SettingsResponse,
   type TextSpacingResponse,
   type FocusOrderResponse,
+  type VisionResponse,
 } from '../lib/messages';
 import { DEFAULT_SETTINGS } from '../lib/storage';
 import { defaultFilters, type FilterState } from './screens/filterState';
@@ -14,11 +15,12 @@ import { EmptyScreen } from './screens/EmptyScreen';
 import { RunningScreen } from './screens/RunningScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { PassScreen } from './screens/PassScreen';
-import { FocusOrderIcon, OutlineIcon, SettingsIcon, TextSpacingIcon } from './components/Icon';
+import { FocusOrderIcon, OutlineIcon, SettingsIcon, TextSpacingIcon, VisionIcon } from './components/Icon';
 import { announce } from './hooks/a11y';
 import { useThemeClass } from './hooks/theme';
 import { useActiveTab } from './hooks/activeTab';
 import { hasAllSitesAccess, requestAllSitesAccess, revokeAllSitesAccess } from '../lib/permissions';
+import type { VisionMode } from '../lib/vision';
 
 const IssueDetailScreen = lazy(() =>
   import('./screens/IssueDetailScreen').then((m) => ({ default: m.IssueDetailScreen })),
@@ -31,6 +33,9 @@ const SettingsScreen = lazy(() =>
 );
 const OutlineScreen = lazy(() =>
   import('./screens/OutlineScreen').then((m) => ({ default: m.OutlineScreen })),
+);
+const VisionScreen = lazy(() =>
+  import('./screens/VisionScreen').then((m) => ({ default: m.VisionScreen })),
 );
 
 type Route = 'empty' | 'running' | 'results' | 'pass' | 'detail';
@@ -54,6 +59,8 @@ export function App() {
   const [textSpacing, setTextSpacing] = useState(false);
   const [focusOrder, setFocusOrder] = useState(false);
   const [showOutline, setShowOutline] = useState(false);
+  const [vision, setVision] = useState<VisionMode | null>(null);
+  const [showVision, setShowVision] = useState(false);
 
   useThemeClass(settings.theme);
   const active = useActiveTab();
@@ -165,6 +172,25 @@ export function App() {
       })
       .catch(() => {
         if (!cancelled) setFocusOrder(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tabId]);
+
+  // And the vision filter: also per-page, tracking the active tab.
+  useEffect(() => {
+    if (tabId == null) {
+      setVision(null);
+      return;
+    }
+    let cancelled = false;
+    void sendToWorker<VisionResponse>({ type: 'GET_VISION', tabId })
+      .then((res) => {
+        if (!cancelled) setVision(res.ok ? res.mode : null);
+      })
+      .catch(() => {
+        if (!cancelled) setVision(null);
       });
     return () => {
       cancelled = true;
@@ -338,6 +364,26 @@ export function App() {
     );
   }, [tabId, focusOrder, showToast]);
 
+  const applyVision = useCallback(
+    async (mode: VisionMode | null) => {
+      if (tabId == null) return;
+      const prev = vision;
+      setVision(mode); // optimistic; revert if the worker reports failure
+      const res = await sendToWorker<VisionResponse>({ type: 'SET_VISION', tabId, mode });
+      if (!res.ok) {
+        setVision(prev);
+        showToast(res.error);
+        return;
+      }
+      announce(
+        mode
+          ? 'Vision simulation applied. Inspect the page through the chosen filter.'
+          : 'Vision simulation off.',
+      );
+    },
+    [tabId, vision, showToast],
+  );
+
   // Clear any page overlay when leaving the detail view.
   useEffect(() => {
     if (route !== 'detail') clearHighlight();
@@ -386,6 +432,17 @@ export function App() {
           onClick={() => void toggleTextSpacing()}
         >
           <TextSpacingIcon />
+        </button>
+        <button
+          class={`icon-btn${vision ? ' is-active' : ''}`}
+          aria-label="Simulate a vision deficiency"
+          aria-haspopup="dialog"
+          aria-expanded={showVision}
+          title="Simulate color-vision deficiencies and low vision"
+          disabled={tabId == null}
+          onClick={() => setShowVision(true)}
+        >
+          <VisionIcon />
         </button>
         <button class="icon-btn" aria-label="Settings" onClick={() => setShowSettings(true)}>
           <SettingsIcon />
@@ -478,6 +535,16 @@ export function App() {
               setShowOutline(false);
             }}
             onLocate={highlight}
+          />
+        </Suspense>
+      )}
+
+      {showVision && (
+        <Suspense fallback={null}>
+          <VisionScreen
+            mode={vision}
+            onApply={(m) => void applyVision(m)}
+            onClose={() => setShowVision(false)}
           />
         </Suspense>
       )}

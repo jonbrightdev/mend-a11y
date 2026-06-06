@@ -1,5 +1,6 @@
 import type { AuditResult, Settings } from './types';
 import type { OutlineData } from './outline';
+import type { VisionMode } from './vision';
 
 /** Messages the side panel sends to the service worker. */
 export type PanelMessage =
@@ -12,6 +13,8 @@ export type PanelMessage =
   | { type: 'SET_FOCUS_ORDER'; tabId: number; enabled: boolean }
   | { type: 'GET_FOCUS_ORDER'; tabId: number }
   | { type: 'GET_OUTLINE'; tabId: number }
+  | { type: 'SET_VISION'; tabId: number; mode: VisionMode | null }
+  | { type: 'GET_VISION'; tabId: number }
   | { type: 'GET_SETTINGS' }
   | { type: 'SET_SETTINGS'; settings: Settings };
 
@@ -30,6 +33,9 @@ export type FocusOrderResponse =
   | { ok: false; error: string };
 export type OutlineResponse =
   | { ok: true; data: OutlineData }
+  | { ok: false; error: string };
+export type VisionResponse =
+  | { ok: true; mode: VisionMode | null }
   | { ok: false; error: string };
 
 export async function sendToWorker<T>(message: PanelMessage): Promise<T> {

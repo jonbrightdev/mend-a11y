@@ -1224,6 +1224,17 @@ pre.code {
   font-size: 13px;
 }
 
+/* ---------- vision simulation ---------- */
+.vision-intro {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ap-fg-muted);
+}
+.vision-caveat {
+  margin-top: 14px;
+}
+
 /* ---------- reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   *,
