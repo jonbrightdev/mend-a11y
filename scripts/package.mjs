@@ -44,7 +44,9 @@ if ('key' in manifest) {
 if (manifest.version !== pkg.version) {
   fail(
     `Version mismatch: manifest.json is ${manifest.version} but package.json is ` +
-      `${pkg.version}. The manifest derives from package.json, so rebuild.`,
+      `${pkg.version}. The manifest is baked from package.json at build time, so ` +
+      'run `npm run build` to rebuild, or cut the release with `npm run release:patch` ' +
+      '(which bumps, builds, and packages in order).',
   );
 }
 
