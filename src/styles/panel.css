@@ -991,7 +991,8 @@ pre.code {
   font-size: 12px;
 }
 
-.search-input {
+.search-input,
+.text-input {
   width: 100%;
   min-height: 36px;
   padding: 0 12px;
@@ -1000,6 +1001,9 @@ pre.code {
   background: var(--ap-surface-raised);
   color: var(--ap-fg);
   font: inherit;
+}
+.field > .text-input + .switch-desc {
+  margin-top: 6px;
 }
 
 .radio-list {

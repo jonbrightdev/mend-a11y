@@ -2,7 +2,9 @@ import { useMemo, useState } from 'preact/hooks';
 import type { AuditResult, Impact, NormalizedIssue } from '../../lib/types';
 import { groupByRule } from '../../lib/normalize';
 import { SevMark, severityLabel } from '../components/Severity';
-import { RefreshIcon, ChevronRight, FilterIcon } from '../components/Icon';
+import { RefreshIcon, ChevronRight, CheckIcon, FilterIcon, UploadIcon } from '../components/Icon';
+
+export type SaveState = 'idle' | 'saving' | 'saved';
 
 type SeverityFilter = 'all' | Impact;
 
@@ -22,11 +24,16 @@ export function ResultsScreen({
   onOpenIssue,
   onRerun,
   onOpenFilters,
+  onSave,
+  saveState = 'idle',
 }: {
   result: AuditResult;
   onOpenIssue: (id: string) => void;
   onRerun: () => void;
   onOpenFilters: () => void;
+  /** Present only when dashboard sync is configured in settings. */
+  onSave?: () => void;
+  saveState?: SaveState;
 }) {
   const [filter, setFilter] = useState<SeverityFilter>('all');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -73,6 +80,19 @@ export function ResultsScreen({
             <FilterIcon size={14} />
             Filters
           </button>
+          {onSave && (
+            <button
+              class="btn small"
+              onClick={onSave}
+              disabled={saveState !== 'idle'}
+              aria-label={
+                saveState === 'saved' ? 'Saved to your dashboard' : 'Save this audit to your dashboard'
+              }
+            >
+              {saveState === 'saved' ? <CheckIcon size={14} /> : <UploadIcon size={14} />}
+              {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save'}
+            </button>
+          )}
         </div>
       </div>
 

@@ -18,8 +18,10 @@ language with copy-paste examples.
   you. Each documented issue has its own explanation and a before/after example.
   Rules we haven't written up yet fall back to the scanner's own wording,
   clearly marked as such, so nothing is ever fabricated.
-- **Everything runs on your machine.** No network requests, no accounts, no API
-  keys. Your pages and results never leave the browser.
+- **Everything runs on your machine.** Audits execute locally and results stay
+  in the browser. There's no telemetry and no account required. An optional
+  dashboard lets you save the audits you choose to your own Mend account —
+  nothing is ever sent unless you set it up and press Save.
 - **It holds itself to the same bar.** The panel is built to pass the same
   accessibility checks it reports: real semantics, keyboard support, visible
   focus, shape-plus-color severity, and AA contrast in both themes.
@@ -33,10 +35,18 @@ language with copy-paste examples.
 
 ## Privacy
 
-Mend makes zero outbound network requests. There's no telemetry, no analytics,
-nothing remote. The only links in the product are the "Read the formal spec"
-links in issue detail, which open the official WCAG page in a new tab when you
-click them. Open the network tab during an audit and check for yourself.
+By default, Mend makes zero outbound network requests. There's no telemetry, no
+analytics, nothing remote. The only links in the product are the "Read the
+formal spec" links in issue detail, which open the official WCAG page in a new
+tab when you click them. Open the network tab during an audit and check for
+yourself.
+
+The one exception is entirely in your hands: the optional dashboard. If you
+enter a dashboard URL and API key in settings, a **Save** button appears on
+results, and pressing it sends that audit (the page URL, title, and the issues
+found) to your own Mend account so you can track progress over time. Nothing is
+ever uploaded automatically, and leaving the settings blank keeps Mend fully
+offline.
 
 ## Under the hood
 
@@ -50,7 +60,7 @@ purpose, but credit is due: see [NOTICE](./NOTICE) and
 
 ### From the Chrome Web Store
 
-Coming soon.
+[**Add Mend to Chrome**](https://chromewebstore.google.com/detail/mend-accessibility-audit/iihcbcolbnbbccohpcendeneofimpcmo)
 
 ### From source (unpacked)
 

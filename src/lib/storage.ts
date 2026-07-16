@@ -7,6 +7,8 @@ export const DEFAULT_SETTINGS: Settings = {
   thoroughness: 'standard',
   experimentalRules: false,
   highlightStyle: 'overlay',
+  dashboardUrl: '',
+  dashboardApiKey: '',
 };
 
 const SETTINGS_KEY = 'settings';

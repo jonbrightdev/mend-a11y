@@ -4,12 +4,14 @@ import type { AuditResult, NormalizedIssue, Settings } from '../lib/types';
 import {
   sendToWorker,
   type RunAuditResponse,
+  type SaveToDashboardResponse,
   type SettingsResponse,
   type TextSpacingResponse,
   type FocusOrderResponse,
   type VisionResponse,
 } from '../lib/messages';
 import { DEFAULT_SETTINGS } from '../lib/storage';
+import { syncConfigured } from '../lib/sync';
 import { defaultFilters, type FilterState } from './screens/filterState';
 import { EmptyScreen } from './screens/EmptyScreen';
 import { RunningScreen } from './screens/RunningScreen';
@@ -61,6 +63,10 @@ export function App() {
   const [showOutline, setShowOutline] = useState(false);
   const [vision, setVision] = useState<VisionMode | null>(null);
   const [showVision, setShowVision] = useState(false);
+  // Dashboard saves: which audits (url|startedAt) already went up, and whether
+  // an upload is in flight, so the Save button can show Saved / Saving states.
+  const [savedAudits, setSavedAudits] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
 
   useThemeClass(settings.theme);
   const active = useActiveTab();
@@ -197,9 +203,9 @@ export function App() {
     };
   }, [tabId]);
 
-  const showToast = useCallback((msg: string) => {
+  const showToast = useCallback((msg: string, ms = 1400) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 1400);
+    window.setTimeout(() => setToast(null), ms);
   }, []);
 
   // Request all-sites access (one-time opt-in) from this click, then audit.
@@ -394,6 +400,34 @@ export function App() {
     void sendToWorker({ type: 'SET_SETTINGS', settings: next });
   }, []);
 
+  // Opt-in dashboard save. The worker reads the cached audit for the tab and
+  // uploads it; the panel only tracks button state and reports the outcome.
+  const syncEnabled = syncConfigured(settings);
+  const auditKey = result ? `${result.url}|${result.startedAt}` : null;
+  const saveState = saving ? 'saving' : auditKey && savedAudits.has(auditKey) ? 'saved' : 'idle';
+
+  const saveToDashboard = useCallback(async () => {
+    if (tabId == null || auditKey == null) return;
+    setSaving(true);
+    try {
+      const res = await sendToWorker<SaveToDashboardResponse>({
+        type: 'SAVE_TO_DASHBOARD',
+        tabId,
+      });
+      if (!res.ok) {
+        // Long enough to actually read a sentence-length error.
+        showToast(res.error, 5000);
+        announce('Saving to the dashboard failed.');
+        return;
+      }
+      setSavedAudits((prev) => new Set(prev).add(auditKey));
+      showToast(res.duplicate ? 'Already on your dashboard' : 'Saved to your dashboard');
+      announce('Audit saved to your dashboard.');
+    } finally {
+      setSaving(false);
+    }
+  }, [tabId, auditKey, showToast]);
+
   return (
     <div class="shell">
       <div class="topbar">
@@ -466,10 +500,17 @@ export function App() {
             onOpenIssue={openIssue}
             onRerun={() => void runAudit()}
             onOpenFilters={() => setShowFilters(true)}
+            onSave={syncEnabled ? () => void saveToDashboard() : undefined}
+            saveState={saveState}
           />
         )}
         {route === 'pass' && result && (
-          <PassScreen result={result} onRerun={() => void runAudit()} />
+          <PassScreen
+            result={result}
+            onRerun={() => void runAudit()}
+            onSave={syncEnabled ? () => void saveToDashboard() : undefined}
+            saveState={saveState}
+          />
         )}
         {route === 'detail' && activeIssue && (
           <Suspense fallback={<div class="pad">Loading…</div>}>

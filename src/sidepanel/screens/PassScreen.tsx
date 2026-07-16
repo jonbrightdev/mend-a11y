@@ -1,6 +1,7 @@
 import type { AuditResult } from '../../lib/types';
-import { RefreshIcon, ShieldIcon } from '../components/Icon';
+import { CheckIcon, RefreshIcon, ShieldIcon, UploadIcon } from '../components/Icon';
 import { Pip } from '../components/Pip';
+import type { SaveState } from './ResultsScreen';
 
 const PASSED_AREAS = [
   'Structure',
@@ -14,9 +15,14 @@ const PASSED_AREAS = [
 export function PassScreen({
   result,
   onRerun,
+  onSave,
+  saveState = 'idle',
 }: {
   result: AuditResult;
   onRerun: () => void;
+  /** Present only when dashboard sync is configured; a clean pass is worth recording too. */
+  onSave?: () => void;
+  saveState?: SaveState;
 }) {
   return (
     <div class="center-stage">
@@ -37,9 +43,23 @@ export function PassScreen({
         <RefreshIcon />
         Re-run
       </button>
+      {onSave && (
+        <button
+          class="btn block"
+          onClick={onSave}
+          disabled={saveState !== 'idle'}
+          style={{ maxWidth: '200px' }}
+          aria-label={
+            saveState === 'saved' ? 'Saved to your dashboard' : 'Save this audit to your dashboard'
+          }
+        >
+          {saveState === 'saved' ? <CheckIcon /> : <UploadIcon />}
+          {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save to dashboard'}
+        </button>
+      )}
       <span class="reassure">
         <ShieldIcon />
-        Nothing left your machine
+        {onSave ? 'Sent only when you press Save' : 'Nothing left your machine'}
       </span>
     </div>
   );

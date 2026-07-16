@@ -16,7 +16,8 @@ export type PanelMessage =
   | { type: 'SET_VISION'; tabId: number; mode: VisionMode | null }
   | { type: 'GET_VISION'; tabId: number }
   | { type: 'GET_SETTINGS' }
-  | { type: 'SET_SETTINGS'; settings: Settings };
+  | { type: 'SET_SETTINGS'; settings: Settings }
+  | { type: 'SAVE_TO_DASHBOARD'; tabId: number };
 
 export type RunAuditResponse =
   | { ok: true; result: AuditResult }
@@ -36,6 +37,9 @@ export type OutlineResponse =
   | { ok: false; error: string };
 export type VisionResponse =
   | { ok: true; mode: VisionMode | null }
+  | { ok: false; error: string };
+export type SaveToDashboardResponse =
+  | { ok: true; duplicate: boolean }
   | { ok: false; error: string };
 
 export async function sendToWorker<T>(message: PanelMessage): Promise<T> {

@@ -24,6 +24,7 @@ import {
   setSettings,
 } from '../lib/storage';
 import { clearHelperEverywhere, perTabState } from '../lib/tabState';
+import { syncConfigured, uploadAudit } from '../lib/sync';
 
 // Open the side panel from the action click. Doing this in onClicked (rather
 // than via openPanelOnActionClick) means the click confers the activeTab grant
@@ -293,6 +294,21 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
     case 'GET_VISION': {
       const mode = (await vision.get(message.tabId)) as VisionMode | null;
       return { ok: true, mode };
+    }
+    case 'SAVE_TO_DASHBOARD': {
+      const result = await getCachedAudit(message.tabId);
+      if (!result) return { ok: false, error: 'Run an audit on this tab first.' };
+      const settings = await getSettings();
+      if (!syncConfigured(settings)) {
+        return { ok: false, error: 'Add your dashboard URL and API key in settings first.' };
+      }
+      const tab = await chrome.tabs.get(message.tabId).catch(() => null);
+      try {
+        const outcome = await uploadAudit(settings, result, tab?.title ?? result.url);
+        return { ok: true, duplicate: outcome.duplicate };
+      } catch (e: unknown) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Saving failed. Try again.' };
+      }
     }
     default:
       return { ok: false, error: 'Unknown message' };

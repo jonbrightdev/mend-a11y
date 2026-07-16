@@ -39,6 +39,17 @@ export const RefreshIcon = ({ size = 16, ...r }: IconProps) =>
 export const ChevronRight = ({ size = 16, ...r }: IconProps) =>
   svg(<polyline points="9 6 15 12 9 18" />, size, r);
 
+export const UploadIcon = ({ size = 16, ...r }: IconProps) =>
+  svg(
+    <>
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      <polyline points="7 8 12 3 17 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </>,
+    size,
+    r,
+  );
+
 export const ChevronLeft = ({ size = 16, ...r }: IconProps) =>
   svg(<polyline points="15 6 9 12 15 18" />, size, r);
 

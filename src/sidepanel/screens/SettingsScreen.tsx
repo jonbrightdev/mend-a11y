@@ -1,5 +1,5 @@
 import type { Settings } from '../../lib/types';
-import { Modal, Segment, Switch } from '../components/Controls';
+import { Modal, Segment, Switch, TextField } from '../components/Controls';
 
 export function SettingsScreen({
   settings,
@@ -79,6 +79,22 @@ export function SettingsScreen({
         desc="Audit any tab without invoking Mend on each one. Off by default; nothing leaves your machine either way."
         checked={allSites}
         onChange={onToggleAllSites}
+      />
+      <TextField
+        label="Dashboard URL"
+        type="url"
+        value={settings.dashboardUrl}
+        placeholder="https://…"
+        desc="Optional. The Mend portal where saved audits go. Leave both fields blank to keep everything on your machine."
+        onChange={(v) => set('dashboardUrl', v)}
+      />
+      <TextField
+        label="Dashboard API key"
+        type="password"
+        value={settings.dashboardApiKey}
+        placeholder="mend_…"
+        desc="Generate one on your portal account page. Audits are only sent when you press Save on a result — never automatically."
+        onChange={(v) => set('dashboardApiKey', v)}
       />
     </Modal>
   );

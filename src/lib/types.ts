@@ -63,6 +63,10 @@ export interface Settings {
   thoroughness: 'quick' | 'standard' | 'deep';
   experimentalRules: boolean;
   highlightStyle: 'outline' | 'overlay';
+  /** Portal origin for the optional dashboard, e.g. https://mend.example. Empty = sync off. */
+  dashboardUrl: string;
+  /** API key from the portal's account page. Empty = sync off. */
+  dashboardApiKey: string;
 }
 
 export interface DocsExample {

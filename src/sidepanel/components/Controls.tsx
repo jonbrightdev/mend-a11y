@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { useId } from 'preact/hooks';
 import { useFocusTrap } from '../hooks/a11y';
 import { CloseIcon } from './Icon';
 
@@ -96,6 +97,48 @@ export function Switch({
           <span class="knob" />
         </button>
       </div>
+    </div>
+  );
+}
+
+export function TextField({
+  label,
+  desc,
+  value,
+  placeholder,
+  type = 'text',
+  onChange,
+}: {
+  label: string;
+  desc?: string;
+  value: string;
+  placeholder?: string;
+  type?: 'text' | 'password' | 'url';
+  onChange: (v: string) => void;
+}) {
+  const id = useId();
+  const descId = desc ? `${id}-desc` : undefined;
+  return (
+    <div class="field">
+      <label class="field-label" for={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        class="text-input"
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        autocomplete="off"
+        spellcheck={false}
+        aria-describedby={descId}
+        onInput={(e) => onChange((e.target as HTMLInputElement).value)}
+      />
+      {desc && (
+        <div class="switch-desc" id={descId}>
+          {desc}
+        </div>
+      )}
     </div>
   );
 }
