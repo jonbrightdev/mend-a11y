@@ -1,68 +1,82 @@
 # Animation plans
 
-Produced by an `improve-animations` audit at commit `834f519`. Every plan is self-contained: exact file paths, current-code excerpts, exact target values, and a feel check. Plans are read-only artifacts — they describe the change, they are not the change.
+Empty by design. The six plans from the `improve-animations` pass at `834f519` were all applied in
+commit `0acb7a7` and deleted once verified. This file is what's left: the parts that still have a
+future.
 
-## Plans
+To read a deleted plan in full: `git show 0acb7a7:plans/004-modal-enter-exit.md` (and so on for
+`001-motion-tokens`, `002-highlight-raf-performance`, `003-toast-interruptibility`,
+`005-scope-reduced-motion`, `006-progress-bar-easing`).
 
-| # | Title | Severity | Category | Status |
-| --- | --- | --- | --- | --- |
-| [001](001-motion-tokens.md) | Add motion tokens alongside the existing color tokens | LOW (blocking) | Cohesion & tokens | **DONE** |
-| [002](002-highlight-raf-performance.md) | Stop the highlight overlay thrashing layout every frame | HIGH | Performance | **DONE** |
-| [003](003-toast-interruptibility.md) | Fix toasts silently swapping and dismissing each other early | MEDIUM | Interruptibility | **DONE** |
-| [004](004-modal-enter-exit.md) | Give the bottom sheet a real drawer curve and an exit animation | MEDIUM | Easing & duration | **DONE** (amended mid-flight) |
-| [005](005-scope-reduced-motion.md) | Scope reduced motion to movement instead of nuking everything | MEDIUM | Accessibility | **DONE** (amended mid-flight) |
-| [006](006-progress-bar-easing.md) | Make the indeterminate progress bar loop without a hitch | LOW | Easing & duration | **DONE** |
+## What shipped
 
-All six applied 2026-07-17. Mechanical verification green throughout (typecheck, build, 21/21 unit tests).
+Applied 2026-07-17, all six re-verified against the source before deletion:
 
-> **Feel checks are outstanding for all six.** They were never run — applying these required no browser, but judging them does. Motion can be mechanically correct and still feel wrong, so treat this set as verified-by-construction, not verified-by-eye. Each plan's Verification section lists exactly what to look for. Highest value, in order: **004**'s rapid open/close stranding test and its "no flash of the open sheet" check; **002**'s double-offset check (an element far down a long page, where the error is largest); **003**'s 10%-playback sideways-lurch check.
+| Plan | Change | Verified at |
+| --- | --- | --- |
+| 001 | Motion tokens (`--ap-ease-out`, `--ap-ease-drawer`, `--ap-duration-fast\|base\|slow`) | `panel.css:31-37` |
+| 002 | Highlight overlay writes `transform`, skips redundant frames | `highlight.ts:78-108` |
+| 003 | Toast keyed by message; single timer held in a ref | `App.tsx:232-240`, `App.tsx:628-632` |
+| 004 | Sheets enter/exit on a drawer curve via `[data-state='closing']` | `panel.css:883-926`, `App.tsx:52-64` |
+| 005 | Reduced motion scoped to movement, not all feedback | `panel.css:1287-1329` |
+| 006 | Indeterminate progress bar loops `linear` | `panel.css:366` |
 
-## Corrections made during execution
+Plus one follow-up found while auditing the above and fixed in the same pass — see below.
 
-Both were errors in the plans, caught by the executor refusing to improvise around them. Recorded because they say something about where these plans were weakest:
+## Outstanding feel checks
 
-- **004 step 8 was factually wrong.** It claimed the four screens each render their own `.modal-backdrop`/`.modal` markup and that the markup differed between them. Neither is true: one shared `Modal` in `Controls.tsx` owns it, and the four screens are its only callers. The step was written without reading those files. Amended — the real fix is smaller, threading `closing` through one component.
-- **005 omitted the `.modal-backdrop` reduced-motion override.** The sheet faded at 120ms while the backdrop kept 004's 250ms, so the dim outlasted the sheet by 130ms on close. Opacity-only either way, so nothing broke, but it was unintentional. Amended.
+**None of the six were ever feel-checked.** They are verified-by-construction, not verified-by-eye —
+motion can be mechanically correct and still feel wrong. Highest value first:
 
-Also worth knowing: **001 step 9's survivor list is stale by design.** It permits `.toast`, `.modal-backdrop` and `.modal` as hand-typed-timing survivors, but 003 and 004 tokenized all three. The sweep now returns zero — stricter than 001 anticipated, and the correct end state.
+1. **Rapid sheet open/close** — open a sheet (Settings, Filters, Outline, Vision) and close-then-reopen
+   it inside 250ms. Watch for the sheet being stranded, or a flash of the open sheet on close. The
+   snap-to-dismissed bug this would have caught is fixed (below), but the check still stands.
+2. **Highlight double-offset** — open an issue detail for an element far down a long page and confirm
+   the overlay lands exactly on it. 002 changed `top`/`left` to `transform`; if any offset were
+   double-applied the error would be largest here.
+3. **Toast sideways lurch** — DevTools → Animations at 10% playback, trigger a toast. It must rise
+   straight up while staying centered. Drift means a keyframe lost its `translate(-50%, …)`.
 
-## Execution order
+## Fixed: sheets snapped to fully-dismissed when reopened mid-close
 
-**001 → 002 → 003 → 004 → 005 → 006.** This order is not arbitrary — see the dependency graph below.
+`useSheet` (`App.tsx:52-64`) flips `data-state` between `open` and `closing`, and the CSS swapped the
+*animation name* (`sheet-in` ⇄ `sheet-out`). CSS keyframes restart from their `0%` step rather than
+retargeting, so reopening a part-dismissed sheet snapped it to fully-offscreen first. Measured in
+Chrome before the fix — one frame after the reopen the sheet sat at exactly `translateY(100%)`:
 
 ```
-001 (tokens) ──┬──> 003 (toast) ──┐
-               ├──> 004 (sheets) ─┼──> 005 (reduced motion)
-               └──> 006 (progress bar, soft dep)
-
-002 (highlight.ts) ── independent, any time
+100ms into close:  translateY(276px)
+reopen +1 frame:   translateY(300px)   ← snapped fully offscreen
 ```
 
-- **001 blocks 003, 004 and 005.** It defines `--ap-ease-out`, `--ap-ease-drawer`, `--ap-duration-fast|base|slow`. Those plans consume the tokens and will produce broken CSS without them. Each has a `grep` guard in its "Repo conventions" section that fails loudly if 001 hasn't run.
-- **005 must run last of the CSS plans.** It rewrites the reduced-motion block in terms of the `toast-in` keyframe (from 003) and the `[data-state='closing']` hooks and `fade-out` keyframe (from 004). Running it early would reference selectors and keyframes that don't exist yet.
-- **006 has only a soft dependency** on 001 — it swaps a keyword (`ease-in-out` → `linear`), not a token. It is ordered last because 005's reduced-motion override for `.progress-bar` interacts with it, but they don't conflict mechanically.
-- **002 is fully independent.** It is the only plan touching `src/lib/highlight.ts`; every other plan touches `src/styles/panel.css`. It can run at any point, or in parallel with the rest.
+Now a `transform`/`opacity` transition, which retargets from wherever the sheet is, with
+`@starting-style` supplying the entry a transition can't run on mount (`panel.css:883-926`). Verified
+in Chrome against the real stylesheet: reopening mid-close recovers from the current position instead
+of snapping, and under `prefers-reduced-motion` the sheet never translates at any point while opacity
+still animates.
 
-Five of the six plans edit the same file (`src/styles/panel.css`), so **do not run them in parallel** — they will collide. Sequential, in the order above.
+`@starting-style` is Chrome 117+; the manifest sets no `minimum_chrome_version` and the side panel API
+already requires 114+. The degradation across that gap is graceful — the sheet appears in place rather
+than sliding — so it was not worth pinning the manifest.
 
-## Audit findings not covered by a plan
+## Missed opportunities
 
-- **Dead `.tile` transform transition** (`panel.css:440`) — `transition: ..., transform 0.08s ease` with no rule anywhere setting a transform on `.tile`. Folded into **plan 001, step 5** rather than given its own plan, since 001 rewrites that exact declaration.
+Additive, not corrective. Each needs its own plan:
 
-## Missed opportunities (not planned)
+- **The PASS stamp never stamps** (`panel.css:836-864`, `PassScreen.tsx:30`). An SVG-turbulence-masked
+  eroded ink border, pre-rotated `-8deg`, shown once per clean audit — a rare, high-emotion moment with
+  none of the delight budget it's entitled to. An overshoot-and-settle stamp-down is the obvious move.
+- **Route changes teleport** (`App.tsx:517-574`). `empty → running → results → detail` all hard-cut.
+  Detail is a drill-down from a row — spatially connected UI with nothing explaining where it came
+  from. Any fix stays under ~200ms; detail is opened often.
+- **Severity tile counts pop in** (`ResultsScreen.tsx:99-117`). Four counts landing at once after a
+  scan; a 30–80ms stagger would sequence the reveal without blocking interaction.
 
-These are additive rather than corrective, and were left out of this pass. Each would need its own plan:
-
-- **The PASS stamp never stamps** (`panel.css:825-853`). An SVG-turbulence-masked eroded ink border, pre-rotated `-8deg`, shown once per clean audit — a rare, high-emotion moment rendered with none of the delight budget it's entitled to. The obvious move is a quick overshoot-and-settle stamp-down.
-- **Route changes teleport** (`App.tsx:487-542`). `empty → running → results → detail` all hard-cut. The detail view is a drill-down from a row — spatially connected UI with nothing explaining where it came from. Any fix must stay under ~200ms; detail is opened often.
-- **Severity tile counts pop in** (`ResultsScreen.tsx:99-113`). Four counts landing at once after a scan; a 30–80ms stagger would sequence the reveal without blocking interaction.
-
-## What the audit found to be already correct
-
-Recorded so a later pass doesn't "fix" them:
+## Already correct — don't "fix" these
 
 - No `transition: all`, no `scale(0)`, and no `ease-in` anywhere in the codebase.
-- `src/lib/highlight.ts:70-71` correctly branches `scrollIntoView` behavior on `prefers-reduced-motion`.
-- `.outline-spinner` (`panel.css:1113`) already uses the correct `linear` for constant rotation — it is the exemplar plan 006 brings `.progress-bar` in line with.
-- `.float`'s `ease-in-out` (`panel.css:259`) is correct: Pip's idle float is a symmetric back-and-forth, not a loop with a seam.
-- The sheets are edge-anchored and animate on the Y axis, so `transform-origin` needs no fixing.
+- `highlight.ts:72-73` correctly branches `scrollIntoView` on `prefers-reduced-motion`.
+- `.outline-spinner` (`panel.css:1157`) uses `linear` for constant rotation — correct.
+- `.float`'s `ease-in-out` (`panel.css:270`) is correct: Pip's idle float is a symmetric
+  back-and-forth, not a loop with a seam.
+- Sheets are edge-anchored and animate on Y, so `transform-origin` needs no fixing.

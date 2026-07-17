@@ -880,6 +880,12 @@ pre.code {
 }
 
 /* ---------- modal (filters / settings) ---------- */
+/* Enter and exit are transitions, not a keyframe pair. A keyframe restarts from
+   its 0% step, so swapping sheet-in for sheet-out on a sheet the user reopens
+   mid-close snapped it to fully-dismissed before sliding back up. Transitions
+   retarget from wherever the sheet currently is. @starting-style supplies the
+   entry, since a transition alone won't run on mount; where it is unsupported
+   the sheet simply appears in place rather than sliding. */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -887,10 +893,16 @@ pre.code {
   display: flex;
   align-items: flex-end;
   z-index: 100;
-  animation: fade var(--ap-duration-slow) var(--ap-ease-out);
+  opacity: 1;
+  transition: opacity var(--ap-duration-slow) var(--ap-ease-out);
+}
+@starting-style {
+  .modal-backdrop {
+    opacity: 0;
+  }
 }
 .modal-backdrop[data-state='closing'] {
-  animation: fade-out var(--ap-duration-slow) var(--ap-ease-out) forwards;
+  opacity: 0;
 }
 .modal {
   background: var(--ap-surface);
@@ -901,10 +913,16 @@ pre.code {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: sheet-in var(--ap-duration-slow) var(--ap-ease-drawer);
+  transform: translateY(0);
+  transition: transform var(--ap-duration-slow) var(--ap-ease-drawer);
+}
+@starting-style {
+  .modal {
+    transform: translateY(100%);
+  }
 }
 .modal[data-state='closing'] {
-  animation: sheet-out var(--ap-duration-slow) var(--ap-ease-drawer) forwards;
+  transform: translateY(100%);
 }
 .modal-head {
   display: flex;
@@ -1099,30 +1117,6 @@ pre.code {
     opacity: 1;
   }
 }
-@keyframes sheet-in {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-@keyframes sheet-out {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(100%);
-  }
-}
-@keyframes fade-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -1303,18 +1297,25 @@ pre.code {
   /* Sheets fade in place rather than sliding up from the edge. The backdrop is
      shortened to match: it is opacity-only either way, but at its default 250ms
      it would outlast the sheet and leave the dim hanging over a sheet that has
-     already gone. */
+     already gone. Dropping transform from the sheet's transition is what removes
+     the movement; the base @starting-style still names a transform, but an
+     untransitioned property just resolves instantly, so nothing slides. */
   .modal-backdrop {
-    animation: fade var(--ap-duration-fast) var(--ap-ease-out);
-  }
-  .modal-backdrop[data-state='closing'] {
-    animation: fade-out var(--ap-duration-fast) var(--ap-ease-out) forwards;
+    transition: opacity var(--ap-duration-fast) var(--ap-ease-out);
   }
   .modal {
-    animation: fade var(--ap-duration-fast) var(--ap-ease-out);
+    transform: none;
+    opacity: 1;
+    transition: opacity var(--ap-duration-fast) var(--ap-ease-out);
+  }
+  @starting-style {
+    .modal {
+      opacity: 0;
+    }
   }
   .modal[data-state='closing'] {
-    animation: fade-out var(--ap-duration-fast) var(--ap-ease-out) forwards;
+    transform: none;
+    opacity: 0;
   }
 
   /* The toast fades without the rise. */
