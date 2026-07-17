@@ -7,18 +7,20 @@ export function SettingsScreen({
   onClose,
   allSites,
   onToggleAllSites,
+  closing,
 }: {
   settings: Settings;
   onChange: (next: Settings) => void;
   onClose: () => void;
   allSites: boolean;
   onToggleAllSites: (next: boolean) => void;
+  closing?: boolean;
 }) {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]): void =>
     onChange({ ...settings, [key]: value });
 
   return (
-    <Modal title="Settings" onClose={onClose}>
+    <Modal title="Settings" onClose={onClose} closing={closing}>
       <Segment
         label="Theme"
         value={settings.theme}

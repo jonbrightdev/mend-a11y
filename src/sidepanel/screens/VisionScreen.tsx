@@ -14,10 +14,12 @@ export function VisionScreen({
   mode,
   onApply,
   onClose,
+  closing,
 }: {
   mode: VisionMode | null;
   onApply: (mode: VisionMode | null) => void;
   onClose: () => void;
+  closing?: boolean;
 }) {
   const value: Choice = mode ?? 'off';
   const options: { value: Choice; label: string }[] = [
@@ -26,7 +28,7 @@ export function VisionScreen({
   ];
 
   return (
-    <Modal title="Vision simulation" onClose={onClose}>
+    <Modal title="Vision simulation" onClose={onClose} closing={closing}>
       <p class="vision-intro">
         Apply a full-page filter that approximates how this page looks with a
         color-vision deficiency or low vision. Pick a mode to apply it instantly.

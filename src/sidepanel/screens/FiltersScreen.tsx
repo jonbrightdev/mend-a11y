@@ -15,10 +15,12 @@ export function FiltersScreen({
   initial,
   onApply,
   onClose,
+  closing,
 }: {
   initial: FilterState;
   onApply: (state: FilterState) => void;
   onClose: () => void;
+  closing?: boolean;
 }) {
   const [severities, setSeverities] = useState(new Set(initial.severities));
   const [categories, setCategories] = useState(new Set(initial.categories));
@@ -43,6 +45,7 @@ export function FiltersScreen({
     <Modal
       title="Filters"
       onClose={onClose}
+      closing={closing}
       footer={
         <button
           class="btn primary block"

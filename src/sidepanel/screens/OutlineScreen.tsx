@@ -20,10 +20,12 @@ export function OutlineScreen({
   tabId,
   onClose,
   onLocate,
+  closing,
 }: {
   tabId: number | null;
   onClose: () => void;
   onLocate: (selector: string) => void;
+  closing?: boolean;
 }) {
   const [state, setState] = useState<State>({ status: 'loading' });
 
@@ -55,7 +57,7 @@ export function OutlineScreen({
   }, [tabId]);
 
   return (
-    <Modal title="Page outline" onClose={onClose}>
+    <Modal title="Page outline" onClose={onClose} closing={closing}>
       {state.status === 'loading' && (
         <div class="outline-loading">
           <span class="outline-spinner" aria-hidden="true" />

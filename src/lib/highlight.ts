@@ -61,6 +61,8 @@ export function highlightInPage(selector: string, accent: string): void {
       borderRadius: '3px',
       boxShadow: '0 0 0 9999px rgba(20, 16, 12, 0.25)',
       transition: 'none',
+      transform: 'translate(0px, 0px)',
+      willChange: 'transform',
     } as Partial<CSSStyleDeclaration>);
     document.documentElement.appendChild(el);
     state.box = el;
@@ -73,6 +75,9 @@ export function highlightInPage(selector: string, accent: string): void {
   stop();
   const el = target;
   const box = state.box;
+  // Skip redundant style writes: the element is usually stationary while the
+  // user reads, and every write here costs layout on the audited page.
+  let last: { top: number; left: number; width: number; height: number } | null = null;
   const step = (): void => {
     if (!el.isConnected) {
       remove();
@@ -83,10 +88,22 @@ export function highlightInPage(selector: string, accent: string): void {
       remove();
       return;
     }
-    box.style.top = `${rect.top}px`;
-    box.style.left = `${rect.left}px`;
-    box.style.width = `${rect.width}px`;
-    box.style.height = `${rect.height}px`;
+    if (
+      last === null ||
+      rect.top !== last.top ||
+      rect.left !== last.left ||
+      rect.width !== last.width ||
+      rect.height !== last.height
+    ) {
+      // transform is composited; width/height still cost layout, so only write
+      // them when the box actually resized.
+      box.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
+      if (last === null || rect.width !== last.width || rect.height !== last.height) {
+        box.style.width = `${rect.width}px`;
+        box.style.height = `${rect.height}px`;
+      }
+      last = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    }
     state.raf = requestAnimationFrame(step);
   };
   step();

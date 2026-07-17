@@ -42,6 +42,27 @@ const VisionScreen = lazy(() =>
 
 type Route = 'empty' | 'running' | 'results' | 'pass' | 'detail';
 
+const SHEET_EXIT_MS = 250; // keep in sync with --ap-duration-slow in panel.css
+
+/**
+ * Keeps a sheet mounted for the length of its exit animation. `open` drives the
+ * request; `mounted` drives the render; `closing` drives the [data-state] the
+ * CSS animates on.
+ */
+function useSheet(open: boolean): { mounted: boolean; closing: boolean } {
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    if (!mounted) return;
+    const id = window.setTimeout(() => setMounted(false), SHEET_EXIT_MS);
+    return () => window.clearTimeout(id);
+  }, [open, mounted]);
+  return { mounted, closing: mounted && !open };
+}
+
 export function App() {
   const [route, setRoute] = useState<Route>('empty');
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -67,6 +88,11 @@ export function App() {
   // an upload is in flight, so the Save button can show Saved / Saving states.
   const [savedAudits, setSavedAudits] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+
+  const filtersSheet = useSheet(showFilters);
+  const settingsSheet = useSheet(showSettings);
+  const outlineSheet = useSheet(showOutline);
+  const visionSheet = useSheet(showVision);
 
   useThemeClass(settings.theme);
   const active = useActiveTab();
@@ -203,9 +229,14 @@ export function App() {
     };
   }, [tabId]);
 
+  const toastTimer = useRef<number | null>(null);
   const showToast = useCallback((msg: string, ms = 1400) => {
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     setToast(msg);
-    window.setTimeout(() => setToast(null), ms);
+    toastTimer.current = window.setTimeout(() => {
+      toastTimer.current = null;
+      setToast(null);
+    }, ms);
   }, []);
 
   // Request all-sites access (one-time opt-in) from this click, then audit.
@@ -542,10 +573,11 @@ export function App() {
         )}
       </div>
 
-      {showFilters && (
+      {filtersSheet.mounted && (
         <Suspense fallback={null}>
           <FiltersScreen
             initial={filters}
+            closing={filtersSheet.closing}
             onApply={(state) => {
               setFilters(state);
               setShowFilters(false);
@@ -555,10 +587,11 @@ export function App() {
         </Suspense>
       )}
 
-      {showSettings && (
+      {settingsSheet.mounted && (
         <Suspense fallback={null}>
           <SettingsScreen
             settings={settings}
+            closing={settingsSheet.closing}
             onChange={updateSettings}
             onClose={() => setShowSettings(false)}
             allSites={allSites}
@@ -567,10 +600,11 @@ export function App() {
         </Suspense>
       )}
 
-      {showOutline && (
+      {outlineSheet.mounted && (
         <Suspense fallback={null}>
           <OutlineScreen
             tabId={tabId}
+            closing={outlineSheet.closing}
             onClose={() => {
               clearHighlight();
               setShowOutline(false);
@@ -580,17 +614,22 @@ export function App() {
         </Suspense>
       )}
 
-      {showVision && (
+      {visionSheet.mounted && (
         <Suspense fallback={null}>
           <VisionScreen
             mode={vision}
+            closing={visionSheet.closing}
             onApply={(m) => void applyVision(m)}
             onClose={() => setShowVision(false)}
           />
         </Suspense>
       )}
 
-      {toast && <div class="toast" role="status">{toast}</div>}
+      {toast && (
+        <div class="toast" role="status" key={toast}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

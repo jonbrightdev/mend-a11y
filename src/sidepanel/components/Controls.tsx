@@ -8,17 +8,20 @@ export function Modal({
   onClose,
   children,
   footer,
+  closing = false,
 }: {
   title: string;
   onClose: () => void;
   children: ComponentChildren;
   footer?: ComponentChildren;
+  closing?: boolean;
 }) {
   const ref = useFocusTrap<HTMLDivElement>(true, onClose);
   return (
-    <div class="modal-backdrop" onClick={onClose}>
+    <div class="modal-backdrop" data-state={closing ? 'closing' : 'open'} onClick={onClose}>
       <div
         class="modal"
+        data-state={closing ? 'closing' : 'open'}
         role="dialog"
         aria-modal="true"
         aria-label={title}
