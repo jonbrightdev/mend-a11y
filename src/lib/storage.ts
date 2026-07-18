@@ -7,7 +7,7 @@ export const DEFAULT_SETTINGS: Settings = {
   thoroughness: 'standard',
   experimentalRules: false,
   highlightStyle: 'overlay',
-  dashboardUrl: '',
+  dashboardUrl: 'https://mend-a11y.com',
   dashboardApiKey: '',
 };
 
@@ -17,7 +17,11 @@ const cacheKey = (tabId: number): string => `audit:${tabId}`;
 export async function getSettings(): Promise<Settings> {
   const stored = await chrome.storage.local.get(SETTINGS_KEY);
   const saved = stored[SETTINGS_KEY] as Partial<Settings> | undefined;
-  return { ...DEFAULT_SETTINGS, ...saved };
+  const merged = { ...DEFAULT_SETTINGS, ...saved };
+  // Older installs may have persisted an empty string before the URL field
+  // was hidden and defaulted; treat that the same as never having set it.
+  if (!merged.dashboardUrl.trim()) merged.dashboardUrl = DEFAULT_SETTINGS.dashboardUrl;
+  return merged;
 }
 
 export async function setSettings(settings: Settings): Promise<void> {

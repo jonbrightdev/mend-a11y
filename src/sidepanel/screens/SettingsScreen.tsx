@@ -83,19 +83,11 @@ export function SettingsScreen({
         onChange={onToggleAllSites}
       />
       <TextField
-        label="Dashboard URL"
-        type="url"
-        value={settings.dashboardUrl}
-        placeholder="https://…"
-        desc="Optional. The Mend portal where saved audits go. Leave both fields blank to keep everything on your machine."
-        onChange={(v) => set('dashboardUrl', v)}
-      />
-      <TextField
         label="Dashboard API key"
         type="password"
         value={settings.dashboardApiKey}
         placeholder="mend_…"
-        desc="Generate one on your portal account page. Audits are only sent when you press Save on a result — never automatically."
+        desc="Optional. Generate one on your mend-a11y.com account page to enable saving audits there. Audits are only sent when you press Save on a result — never automatically."
         onChange={(v) => set('dashboardApiKey', v)}
       />
     </Modal>
