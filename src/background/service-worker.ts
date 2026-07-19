@@ -157,8 +157,8 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-chrome.runtime.onMessage.addListener((message: PanelMessage, _sender, sendResponse) => {
-  void handleMessage(message)
+chrome.runtime.onMessage.addListener((message: PanelMessage, sender, sendResponse) => {
+  void handleMessage(message, sender)
     .then(sendResponse)
     .catch((error: unknown) => {
       sendResponse({ ok: false, error: error instanceof Error ? error.message : String(error) });
@@ -166,7 +166,10 @@ chrome.runtime.onMessage.addListener((message: PanelMessage, _sender, sendRespon
   return true; // keep the channel open for the async response
 });
 
-async function handleMessage(message: PanelMessage): Promise<unknown> {
+export async function handleMessage(
+  message: PanelMessage,
+  sender: chrome.runtime.MessageSender,
+): Promise<unknown> {
   switch (message.type) {
     case 'RUN_AUDIT': {
       const result = await runAudit(message.tabId);
@@ -309,6 +312,12 @@ async function handleMessage(message: PanelMessage): Promise<unknown> {
       } catch (e: unknown) {
         return { ok: false, error: e instanceof Error ? e.message : 'Saving failed. Try again.' };
       }
+    }
+    case 'RELAY_DASHBOARD_KEY': {
+      const settings = await getSettings();
+      const origin = sender.origin ?? settings.dashboardUrl;
+      await setSettings({ ...settings, dashboardApiKey: message.apiKey, dashboardUrl: origin });
+      return { ok: true };
     }
     default:
       return { ok: false, error: 'Unknown message' };

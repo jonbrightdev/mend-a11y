@@ -12,9 +12,20 @@ export default defineManifest({
   // with "key field value doesn't match the current item". A `key` is only
   // useful for self-distributed .crx files or a stable unpacked-dev id, neither
   // of which we depend on now that the store is the distribution channel.
-  // No host_permissions. Mend uses activeTab, so it has access to a page only
-  // when the user invokes it, and never any standing access to any site.
+  // No host_permissions beyond one narrow content script (below). Mend uses
+  // activeTab for the page it's invoked on, and never has standing access to
+  // any site the user browses — except its own companion dashboard, where a
+  // content script relays a freshly generated API key into extension storage
+  // so the user doesn't have to copy/paste it. That script runs only on the
+  // dashboard's own account page and does nothing else.
   permissions: ['activeTab', 'scripting', 'storage', 'sidePanel'],
+  content_scripts: [
+    {
+      matches: ['https://mend-a11y.com/account*'],
+      js: ['src/content/dashboard-key-relay.ts'],
+      run_at: 'document_idle',
+    },
+  ],
   // Optional, opt-in only. The user can grant access to all sites from inside
   // the panel so several tabs can be audited without re-invoking on each. This
   // is requested at runtime with an explicit Chrome consent prompt, so there is

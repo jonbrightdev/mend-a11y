@@ -17,7 +17,8 @@ export type PanelMessage =
   | { type: 'GET_VISION'; tabId: number }
   | { type: 'GET_SETTINGS' }
   | { type: 'SET_SETTINGS'; settings: Settings }
-  | { type: 'SAVE_TO_DASHBOARD'; tabId: number };
+  | { type: 'SAVE_TO_DASHBOARD'; tabId: number }
+  | { type: 'RELAY_DASHBOARD_KEY'; apiKey: string };
 
 export type RunAuditResponse =
   | { ok: true; result: AuditResult }
