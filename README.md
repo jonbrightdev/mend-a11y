@@ -1,4 +1,4 @@
-# Mend
+# Mend by Harpoon
 
 **Find what's broken on your page, and exactly how to fix it.**
 
@@ -43,10 +43,10 @@ formal spec" links in issue detail, which open the official WCAG page in a new
 tab when you click them. Open the network tab during an audit and check for
 yourself.
 
-The one exception is entirely in your hands: the optional dashboard. Enter a
-dashboard URL and API key in settings, and Mend starts **automatically**
-uploading every finished audit (the page URL, title, and the issues found) to
-your own Mend account so you can track progress over time. Turn auto-save off
+The one exception is entirely in your hands: the optional Harpoon connection.
+Choose a website project at `app.harpoon.solutions/connect`, and Mend starts
+**automatically** uploading every finished audit (the page URL, title, and the
+issues found) to that project so you can track progress over time. Turn auto-save off
 in settings and that becomes a per-audit **Save** button instead, so nothing
 goes out until you press it. Remove the key, or never add one, and Mend stays
 fully offline.

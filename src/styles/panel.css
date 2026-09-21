@@ -1388,6 +1388,25 @@ button.sync-chip.error:hover {
   gap: 8px;
 }
 
+.reconnect-card {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--ap-border);
+  border-radius: 10px;
+  background: var(--ap-surface-raised);
+  color: var(--ap-fg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.reconnect-card strong {
+  color: var(--ap-fg);
+}
+
+.reconnect-card p {
+  margin: 5px 0 10px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Movement is dropped element-by-element below. Colour, background and
      opacity transitions are deliberately left at full speed: they carry no

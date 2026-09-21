@@ -11,7 +11,7 @@ import {
   type FocusOrderResponse,
   type VisionResponse,
 } from '../lib/messages';
-import { DEFAULT_SETTINGS } from '../lib/storage';
+import { DEFAULT_SETTINGS, HARPOON_DASHBOARD_URL } from '../lib/storage';
 import { normalizeDashboardUrl, syncConfigured } from '../lib/sync';
 import { exportAudit } from './export';
 import type { SyncInfo } from './components/SyncStatus';
@@ -523,8 +523,8 @@ export function App() {
   const showAccountPrompt = !syncEnabled && !settings.accountPromptDismissed;
 
   const saveAudit = useCallback(() => {
-    const base = normalizeDashboardUrl(settings.dashboardUrl) ?? 'https://mend-a11y.com';
-    const open = () => void chrome.tabs.create({ url: `${base}/login?from=extension` });
+    const base = normalizeDashboardUrl(settings.dashboardUrl) ?? HARPOON_DASHBOARD_URL;
+    const open = () => void chrome.tabs.create({ url: `${base}/connect` });
     if (tabId == null) {
       open();
       return;

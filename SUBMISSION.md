@@ -1,4 +1,4 @@
-# Chrome Web Store submission
+# Chrome Web Store submission — Mend by Harpoon
 
 Everything needed to publish Mend to the Chrome Web Store. Work top to bottom;
 the checkboxes track what's done.
@@ -58,7 +58,7 @@ the zip root, refuses to ship a `key` field or a version that drifts from
 
 ### Single purpose description
 
-> Mend audits the web page in the active tab for accessibility (WCAG) issues and
+> Mend by Harpoon audits the web page in the active tab for accessibility (WCAG) issues and
 > explains how to fix each one. It runs entirely on the user's device.
 
 ### Category
@@ -67,18 +67,18 @@ Developer Tools
 
 ### Description
 
-> Mend finds accessibility issues on the page you're testing and tells you
+> Mend by Harpoon finds accessibility issues on the page you're testing and tells you
 > exactly how to fix them.
 >
-> Open the side panel, click Run audit, and Mend scans the active tab against
+> Open the side panel, click Run audit, and Mend by Harpoon scans the active tab against
 > WCAG. Issues are grouped by rule and sorted by severity, then by where they
 > appear on the page. Each one opens with the fix first, in plain language, with
 > a copy-paste before-and-after example. Click Highlight on page to see the
 > exact element.
 >
 > Audits run entirely on your device and no account is required. Optionally,
-> connect a free Mend account (mend-a11y.com) and your audit results save to
-> your own dashboard so you can track fixes over time — nothing is sent
+> connect a free Harpoon account and choose a website project. Your audit results save to
+> that project so you can track fixes over time — nothing is sent
 > anywhere unless you set that up, and auto-save can be turned off in settings.
 >
 > Free and open source.
@@ -108,12 +108,12 @@ Developer Tools
   unless the user connects a dashboard account (below).
 - **sidePanel** — Mend's entire interface is a side panel; this permission lets
   the extension open and display it.
-- **content script on `https://mend-a11y.com/account*` and
-  `https://mend-a11y.com/connect*`** — Runs only on the two pages of Mend's own
-  dashboard that hand out an API key: the account page and the connect step
-  shown after signing up from the extension. When the user generates a key
-  there, the script relays it into extension settings so they don't have to
-  copy/paste it. It reads nothing else and runs nowhere else.
+- **content script on `https://app.harpoon.solutions/connect*`**, plus the
+  temporary `mend-a11y.com/account*` and `/connect*` overlap paths — Runs only
+  on first-party pages that hand out a connection key. It relays that key into
+  extension settings so the user does not have to copy/paste it. It reads
+  nothing else and runs nowhere else. The legacy matches are removed after the
+  reconnect window in Plan 159.
 - **optional host permission (`<all_urls>`)** — Optional and opt-in only. The
   user can choose to grant access to all sites so they can audit several tabs
   without re-invoking Mend on each one. It is requested at runtime with an
@@ -123,8 +123,8 @@ Developer Tools
 ### Data use
 
 - [ ] Declare **Website content** collection: when (and only when) the user
-      connects a Mend account with an API key, finished audits upload to that
-      user's own dashboard. An upload contains the audited page's URL and
+      connects a Harpoon website project, finished audits upload to that
+      project. An upload contains the audited page's URL and
       title, timing, and each issue found (rule, severity, WCAG references,
       selector, a truncated HTML snippet of the failing element). Auto-save
       can be turned off in settings, in which case audits are sent only when

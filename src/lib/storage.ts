@@ -1,5 +1,8 @@
 import type { AuditResult, PendingSave, Settings } from './types';
 
+export const HARPOON_DASHBOARD_URL = 'https://app.harpoon.solutions';
+export const LEGACY_MEND_DASHBOARD_URL = 'https://mend-a11y.com';
+
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto',
   wcagVersion: '2.1',
@@ -7,11 +10,22 @@ export const DEFAULT_SETTINGS: Settings = {
   thoroughness: 'standard',
   experimentalRules: false,
   highlightStyle: 'overlay',
-  dashboardUrl: 'https://mend-a11y.com',
+  dashboardUrl: HARPOON_DASHBOARD_URL,
   dashboardApiKey: '',
   autoSync: true,
   accountPromptDismissed: false,
 };
+
+/** Exact first-party legacy origin only; custom/self-hosted destinations are never rewritten. */
+export function usesLegacyMendDashboard(settings: Settings): boolean {
+  return settings.dashboardUrl.replace(/\/+$/, '') === LEGACY_MEND_DASHBOARD_URL;
+}
+
+/** User-triggered migration. Pending audit snapshots live in session storage and survive. */
+export function reconnectSettingsToHarpoon(settings: Settings): Settings {
+  if (!usesLegacyMendDashboard(settings)) return settings;
+  return { ...settings, dashboardUrl: HARPOON_DASHBOARD_URL, dashboardApiKey: '' };
+}
 
 const SETTINGS_KEY = 'settings';
 const cacheKey = (tabId: number): string => `audit:${tabId}`;

@@ -18,6 +18,7 @@ import {
   type VisionMode,
 } from '../lib/vision';
 import {
+  HARPOON_DASHBOARD_URL,
   clearCachedAudit,
   clearPendingSave,
   getCachedAudit,
@@ -184,7 +185,7 @@ async function guardSender(
   if (message.type === 'RELAY_DASHBOARD_KEY') {
     const settings = await getSettings();
     const expectedOrigin = new URL(
-      normalizeDashboardUrl(settings.dashboardUrl) ?? 'https://mend-a11y.com',
+      normalizeDashboardUrl(settings.dashboardUrl) ?? HARPOON_DASHBOARD_URL,
     ).origin;
     if (sender.tab !== undefined && sender.origin === expectedOrigin) return null;
     return { ok: false, error: 'Unauthorized sender' };

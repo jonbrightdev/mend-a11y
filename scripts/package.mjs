@@ -50,6 +50,23 @@ if (manifest.version !== pkg.version) {
   );
 }
 
+const expectedRelayMatches = [
+  'https://app.harpoon.solutions/connect*',
+  'https://mend-a11y.com/account*',
+  'https://mend-a11y.com/connect*',
+].sort();
+const relayScripts = Array.isArray(manifest.content_scripts) ? manifest.content_scripts : [];
+if (relayScripts.length !== 1) {
+  fail(`expected exactly one narrowly-scoped relay content script; found ${relayScripts.length}`);
+}
+const actualRelayMatches = [...(relayScripts[0]?.matches ?? [])].sort();
+if (JSON.stringify(actualRelayMatches) !== JSON.stringify(expectedRelayMatches)) {
+  fail(
+    'relay origins drifted. Expected only the Harpoon /connect destination plus the ' +
+      'temporary Mend /account and /connect overlap paths.',
+  );
+}
+
 const strayMaps = readdirSync(distDir, { recursive: true }).filter((f) =>
   String(f).endsWith('.map'),
 );

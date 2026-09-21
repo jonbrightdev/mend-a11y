@@ -6,7 +6,12 @@
 // notes as dashboard-key-relay.test.ts: plain tsx under Node, no DOM, so the
 // content script's window listener is exercised by test:smoke, not here.
 // Run with: tsx test/pending-save.test.ts
-import { DEFAULT_SETTINGS } from '../src/lib/storage';
+import {
+  DEFAULT_SETTINGS,
+  HARPOON_DASHBOARD_URL,
+  reconnectSettingsToHarpoon,
+  setSettings,
+} from '../src/lib/storage';
 import type { AuditResult, PendingSave, Settings } from '../src/lib/types';
 
 const checks: [string, boolean][] = [];
@@ -49,10 +54,10 @@ const panelSender = {
   url: 'chrome-extension://test/src/sidepanel/index.html',
 } as unknown as chrome.runtime.MessageSender;
 // Relay-shaped sender: a content script on the configured dashboard origin
-// (DEFAULT_SETTINGS.dashboardUrl is https://mend-a11y.com).
+// (DEFAULT_SETTINGS.dashboardUrl is the Harpoon application origin).
 const relaySender = {
   id: 'test-ext',
-  origin: 'https://mend-a11y.com',
+  origin: HARPOON_DASHBOARD_URL,
   tab: { id: 1 },
 } as unknown as chrome.runtime.MessageSender;
 
@@ -126,7 +131,7 @@ async function main(): Promise<void> {
   ) as { ok: boolean; uploaded: boolean };
   ok('relay with a staged save reports uploaded', relayed.ok === true && relayed.uploaded === true);
   ok('the staged audit was POSTed to /api/ingest',
-    fetchCalls.length === 1 && fetchCalls[0].url === 'https://mend-a11y.com/api/ingest');
+    fetchCalls.length === 1 && fetchCalls[0].url === `${HARPOON_DASHBOARD_URL}/api/ingest`);
   ok('the POST carries the snapshot, title included',
     (fetchCalls[0].body as { url: string; pageTitle: string }).url === audit.url &&
     (fetchCalls[0].body as { pageTitle: string }).pageTitle === 'Example Domain');
@@ -185,6 +190,19 @@ async function main(): Promise<void> {
   ) as { ok: boolean; uploaded: boolean };
   ok('the upload survives the tab cache being cleared',
     afterNav.uploaded === true && fetchCalls.length === 1);
+
+  // --- explicit first-party reconnect changes only local settings; a pending audit stays ---
+  session = { pendingSave: { result: audit, pageTitle: 'Still pending', stagedAt: Date.now() } };
+  const legacySettings = {
+    ...DEFAULT_SETTINGS,
+    dashboardUrl: 'https://mend-a11y.com',
+    dashboardApiKey: 'old-mend-key',
+    autoSync: false,
+  } as Settings;
+  await setSettings(reconnectSettingsToHarpoon(legacySettings));
+  ok('reconnect preserves a pending local result', 'pendingSave' in session);
+  ok('reconnect preserves disabled auto-save', (store.settings as Settings).autoSync === false);
+  ok('reconnect never sends the old key', (store.settings as Settings).dashboardApiKey === '');
 
   let pass = 0;
   for (const [name, cond] of checks) {

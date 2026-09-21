@@ -6,7 +6,7 @@
 // is refused before any branch runs, so GET_SETTINGS never leaks the raw key
 // and SET_SETTINGS never accepts a write from an unexpected sender.
 // Run with: tsx test/message-guard.test.ts
-import { DEFAULT_SETTINGS } from '../src/lib/storage';
+import { DEFAULT_SETTINGS, HARPOON_DASHBOARD_URL } from '../src/lib/storage';
 import type { Settings } from '../src/lib/types';
 
 const checks: [string, boolean][] = [];
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   // the response carries no settings object ---
   const relaySettings = (await handleMessage(
     { type: 'GET_SETTINGS' },
-    relaySender('https://mend-a11y.com'),
+    relaySender(HARPOON_DASHBOARD_URL),
   )) as { ok?: boolean; settings?: Settings };
   ok('GET_SETTINGS from the relay is refused', relaySettings.ok === false);
   ok('a refused GET_SETTINGS carries no settings object', relaySettings.settings === undefined);
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   const beforeSet = JSON.stringify(store.settings);
   const setResult = (await handleMessage(
     { type: 'SET_SETTINGS', settings: { ...DEFAULT_SETTINGS, dashboardApiKey: 'hijacked' } },
-    relaySender('https://mend-a11y.com'),
+    relaySender(HARPOON_DASHBOARD_URL),
   )) as { ok: boolean };
   ok('SET_SETTINGS from a tab-bearing sender is refused', setResult.ok === false);
   ok('a refused SET_SETTINGS leaves storage unchanged', JSON.stringify(store.settings) === beforeSet);
@@ -156,7 +156,7 @@ async function main(): Promise<void> {
 
   const foreignRelay = (await handleMessage(
     { type: 'RELAY_DASHBOARD_KEY', apiKey: 'foreign_key' },
-    { id: 'some-other-extension', origin: 'https://mend-a11y.com', tab: { id: 1 } } as unknown as chrome.runtime.MessageSender,
+    { id: 'some-other-extension', origin: HARPOON_DASHBOARD_URL, tab: { id: 1 } } as unknown as chrome.runtime.MessageSender,
   )) as { ok: boolean };
   ok('a mismatched sender.id is refused for RELAY_DASHBOARD_KEY', foreignRelay.ok === false);
   ok(

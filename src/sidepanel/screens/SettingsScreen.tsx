@@ -1,5 +1,10 @@
 import type { Settings } from '../../lib/types';
 import { Modal, Segment, Switch, TextField } from '../components/Controls';
+import {
+  HARPOON_DASHBOARD_URL,
+  reconnectSettingsToHarpoon,
+  usesLegacyMendDashboard,
+} from '../../lib/storage';
 
 export function SettingsScreen({
   settings,
@@ -86,11 +91,31 @@ export function SettingsScreen({
         label="Dashboard API key"
         type="password"
         value={settings.dashboardApiKey}
-        placeholder="mend_…"
-        desc="Optional. Generate one on your mend-a11y.com account page. With a key set, audits save to your dashboard when they finish."
+        placeholder="mha_…"
+        desc="Optional. Connect this browser to a website project in Harpoon. With a key set, audits save to that destination when they finish."
         commitOn="blur"
         onChange={(v) => set('dashboardApiKey', v)}
       />
+      {usesLegacyMendDashboard(settings) && (
+        <div class="reconnect-card" role="note">
+          <strong>Reconnect to Harpoon</strong>
+          <p>
+            Your existing Mend key stays in place until you choose this. Reconnecting switches
+            the first-party destination to Harpoon and asks you to choose a fresh website project.
+            Custom endpoints are never changed.
+          </p>
+          <button
+            class="btn small primary"
+            type="button"
+            onClick={() => {
+              onChange(reconnectSettingsToHarpoon(settings));
+              void chrome.tabs.create({ url: `${HARPOON_DASHBOARD_URL}/connect` });
+            }}
+          >
+            Reconnect to Harpoon
+          </button>
+        </div>
+      )}
       {settings.dashboardApiKey.trim() !== '' && (
         <Switch
           name="Auto-save audits"

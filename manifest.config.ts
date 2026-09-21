@@ -3,7 +3,7 @@ import pkg from './package.json';
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'Mend: Accessibility Audit',
+  name: 'Mend by Harpoon: Accessibility Audit',
   version: pkg.version,
   description: 'Find accessibility issues on the active page and learn how to fix them.',
   // No `key` field. The Chrome Web Store assigns and manages this item's
@@ -22,7 +22,13 @@ export default defineManifest({
   permissions: ['activeTab', 'scripting', 'storage', 'sidePanel'],
   content_scripts: [
     {
-      matches: ['https://mend-a11y.com/account*', 'https://mend-a11y.com/connect*'],
+      matches: [
+        'https://app.harpoon.solutions/connect*',
+        // Short Plan-154 overlap only. Plan 159 removes the legacy portal after the
+        // destination, Store update and reconnect window have passed their checks.
+        'https://mend-a11y.com/account*',
+        'https://mend-a11y.com/connect*',
+      ],
       js: ['src/content/dashboard-key-relay.ts'],
       run_at: 'document_idle',
     },
@@ -39,7 +45,7 @@ export default defineManifest({
     '128': 'public/icons/icon-128.png',
   },
   action: {
-    default_title: 'Open Mend',
+    default_title: 'Open Mend by Harpoon',
     default_icon: {
       '16': 'public/icons/icon-16.png',
       '32': 'public/icons/icon-32.png',

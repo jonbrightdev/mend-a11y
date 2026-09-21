@@ -8,7 +8,11 @@
 // undefined), so that half is only exercisable via test:smoke's puppeteer
 // flow, not here.
 // Run with: tsx test/dashboard-key-relay.test.ts
-import { DEFAULT_SETTINGS } from '../src/lib/storage';
+import {
+  DEFAULT_SETTINGS,
+  HARPOON_DASHBOARD_URL,
+  reconnectSettingsToHarpoon,
+} from '../src/lib/storage';
 import type { Settings } from '../src/lib/types';
 
 const checks: [string, boolean][] = [];
@@ -45,7 +49,7 @@ async function main(): Promise<void> {
   store = { settings: { ...DEFAULT_SETTINGS, theme: 'dark', wcagVersion: '2.2' } as Settings };
   await handleMessage(
     { type: 'RELAY_DASHBOARD_KEY', apiKey: 'mend_relayed' },
-    relaySender('https://mend-a11y.com'),
+    relaySender(HARPOON_DASHBOARD_URL),
   );
   const merged = store.settings as Settings;
   ok('apiKey is stored', merged.dashboardApiKey === 'mend_relayed');
@@ -60,7 +64,7 @@ async function main(): Promise<void> {
   ) as { ok: boolean };
   const untouched = store.settings as Settings;
   ok('relay from a subdomain is refused', refused.ok === false);
-  ok('a refused relay leaves dashboardUrl untouched', untouched.dashboardUrl === 'https://mend-a11y.com');
+  ok('a refused relay leaves dashboardUrl untouched', untouched.dashboardUrl === HARPOON_DASHBOARD_URL);
   ok('a refused relay leaves the key unset', untouched.dashboardApiKey === '');
 
   // --- a relay from the exact configured origin succeeds and leaves
@@ -89,11 +93,24 @@ async function main(): Promise<void> {
   store = { settings: { ...DEFAULT_SETTINGS, accountPromptDismissed: true } as Settings };
   await handleMessage(
     { type: 'RELAY_DASHBOARD_KEY', apiKey: 'mend_relayed4' },
-    relaySender('https://mend-a11y.com'),
+    relaySender(HARPOON_DASHBOARD_URL),
   );
   const dismissed = store.settings as Settings;
   ok('accountPromptDismissed survives the relay merge', dismissed.accountPromptDismissed === true);
   ok('relay leaves autoSync on', dismissed.autoSync === true);
+
+  // --- migration is explicit and exact-origin only ---
+  const reconnected = reconnectSettingsToHarpoon({
+    ...DEFAULT_SETTINGS,
+    dashboardUrl: 'https://mend-a11y.com',
+    dashboardApiKey: 'old-secret',
+    autoSync: false,
+  });
+  ok('explicit reconnect replaces the old first-party origin', reconnected.dashboardUrl === HARPOON_DASHBOARD_URL);
+  ok('explicit reconnect clears the old key', reconnected.dashboardApiKey === '');
+  ok('explicit reconnect preserves disabled auto-save', reconnected.autoSync === false);
+  const custom = { ...DEFAULT_SETTINGS, dashboardUrl: 'https://self-hosted.example', dashboardApiKey: 'custom' };
+  ok('custom endpoints are never rewritten', reconnectSettingsToHarpoon(custom) === custom);
 
   let pass = 0;
   for (const [name, cond] of checks) {
