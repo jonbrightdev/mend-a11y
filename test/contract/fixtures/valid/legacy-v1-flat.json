@@ -5,18 +5,9 @@
   "durationMs": 812,
   "totalChecks": 950,
   "partial": false,
-  "rules": {
-    "label": {
-      "impact": "critical",
-      "category": "forms",
-      "wcag": [
-        "1.1.1"
-      ],
-      "title": "Images must have alternate text",
-      "description": "Add an alt attribute.",
-      "helpUrl": "https://example.com/help"
-    },
-    "image-alt": {
+  "issues": [
+    {
+      "ruleId": "image-alt",
       "impact": "critical",
       "category": "images",
       "wcag": [
@@ -24,23 +15,26 @@
       ],
       "title": "Images must have alternate text",
       "description": "Add an alt attribute.",
-      "helpUrl": "https://example.com/help"
-    }
-  },
-  "issues": [
-    {
-      "ruleId": "label",
-      "selector": "input#q",
-      "html": "<img class=\"hero\">",
-      "failureSummary": "Element has no alt",
-      "domOrder": 1
-    },
-    {
-      "ruleId": "image-alt",
+      "helpUrl": "https://example.com/help",
       "selector": "img.hero",
       "html": "<img class=\"hero\">",
       "failureSummary": "Element has no alt",
       "domOrder": 3
+    },
+    {
+      "ruleId": "label",
+      "impact": "critical",
+      "category": "forms",
+      "wcag": [
+        "1.1.1"
+      ],
+      "title": "Images must have alternate text",
+      "description": "Add an alt attribute.",
+      "helpUrl": "https://example.com/help",
+      "selector": "input#q",
+      "html": "<img class=\"hero\">",
+      "failureSummary": "Element has no alt",
+      "domOrder": 1
     }
   ]
 }

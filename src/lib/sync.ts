@@ -1,25 +1,33 @@
 import type { AuditResult, NormalizedIssue, Settings } from './types';
 
-// Client for the optional Mend dashboard (the mend-website portal). Nothing is
+// Client for the optional Harpoon dashboard. Nothing is
 // ever sent unless the user has connected an account (portal URL + API key in
 // settings); with a key present, audits upload automatically after each run
 // unless the auto-save setting is off, in which case the Save button sends
 // them. The payload shape here is the contract the portal's /api/ingest
 // endpoint validates.
 
-/** One flat issue as /api/ingest expects it (one entry per affected element). */
+/**
+ * One affected element. Everything that describes the *rule* rather than the
+ * element lives in `IngestRule` and is sent once — see CONTRACT_VERSION 2 in
+ * test/contract/README.md.
+ */
 export interface IngestIssue {
   ruleId: string;
+  selector: string;
+  html: string;
+  failureSummary?: string;
+  domOrder: number;
+}
+
+/** The per-rule half of an issue, sent once per distinct `ruleId`. */
+export interface IngestRule {
   impact: string;
   category: string;
   wcag: string[];
   title: string;
   description: string;
   helpUrl?: string;
-  selector: string;
-  html: string;
-  failureSummary?: string;
-  domOrder: number;
 }
 
 export interface IngestPayload {
@@ -29,13 +37,43 @@ export interface IngestPayload {
   durationMs: number;
   totalChecks: number;
   partial: boolean;
+  rules: Record<string, IngestRule>;
   issues: IngestIssue[];
 }
 
 export interface SyncOutcome {
   /** True when the portal had already stored this exact audit. */
   duplicate: boolean;
+  /** How many issues were actually uploaded. */
+  sent: number;
+  /** How many the audit found. Greater than `sent` when the run was trimmed. */
+  found: number;
 }
+
+/**
+ * The portal's own ceilings, mirrored so a page that exceeds them is trimmed
+ * here rather than refused there. Kept slightly under the server's 2,000,000
+ * so a payload built to fit can't lose a race with a header or a re-encode.
+ *
+ * These are a *contract* copy, not a guess: if the portal raises them, these
+ * move in the same commit that bumps CONTRACT_VERSION.
+ */
+export const MAX_SYNC_ISSUES = 1000;
+export const MAX_BODY_CHARS = 1_900_000;
+
+/**
+ * Never trim below this, however big the individual issues are. A run this
+ * small that still won't fit is pathological (one enormous selector or
+ * snippet), and sending 25 issues the user can act on beats sending none.
+ */
+const MIN_SYNC_ISSUES = 25;
+
+const IMPACT_RANK: Record<string, number> = {
+  critical: 0,
+  serious: 1,
+  moderate: 2,
+  minor: 3,
+};
 
 /**
  * Upload failure with the portal's own words plus enough structure for the UI
@@ -69,32 +107,107 @@ export function normalizeDashboardUrl(raw: string): string | null {
   return trimmed;
 }
 
+/**
+ * Builds the upload body, trimming until it is one the portal will accept.
+ *
+ * Two things make a big page fit. The rules map removes the duplication —
+ * a page with 1,224 issues over ~10 rules used to repeat each rule's title,
+ * description, helpUrl, category and WCAG list on every single issue, which
+ * on dailymail.com's homepage was 478 KB of a 1.27 MB body. What is left is
+ * then trimmed by count, worst-first, so an enormous page uploads its most
+ * severe findings instead of being refused whole.
+ *
+ * The result is that this function cannot produce a payload the portal
+ * refuses for size — which is the property the previous version lacked, and
+ * why a real page could dead-end on "Payload too large" with nothing the user
+ * could do about it.
+ */
 export function buildIngestPayload(result: AuditResult, pageTitle: string): IngestPayload {
+  // Worst first, so every trim below drops the least severe issues. The audit
+  // pipeline already sorts this way; re-sorting here keeps the guarantee a
+  // property of the upload rather than of whoever last touched sortIssues.
+  const ranked = [...result.issues].sort(
+    (a, b) =>
+      (IMPACT_RANK[a.impact] ?? 99) - (IMPACT_RANK[b.impact] ?? 99) || a.domOrder - b.domOrder,
+  );
+
+  let keep = Math.min(ranked.length, MAX_SYNC_ISSUES);
+  let payload = assemble(result, pageTitle, ranked, keep);
+
+  // Shrink until it fits. Geometric, so a pathologically heavy page converges
+  // in a handful of passes rather than one issue at a time.
+  while (JSON.stringify(payload).length > MAX_BODY_CHARS && keep > MIN_SYNC_ISSUES) {
+    keep = Math.max(MIN_SYNC_ISSUES, Math.floor(keep * 0.8));
+    payload = assemble(result, pageTitle, ranked, keep);
+  }
+
+  return payload;
+}
+
+function assemble(
+  result: AuditResult,
+  pageTitle: string,
+  ranked: NormalizedIssue[],
+  keep: number,
+): IngestPayload {
+  const kept = ranked.slice(0, keep);
+
+  // Only the rules still represented — a map covering trimmed-away issues
+  // would put back some of the weight the trim just removed.
+  const rules: Record<string, IngestRule> = {};
+  for (const issue of kept) {
+    if (rules[issue.ruleId]) continue;
+    rules[issue.ruleId] = {
+      impact: issue.impact,
+      category: issue.category,
+      wcag: issue.wcag,
+      title: issue.title,
+      description: issue.description,
+      helpUrl: issue.helpUrl,
+    };
+  }
+
   return {
     url: result.url,
     pageTitle,
     startedAt: result.startedAt,
     durationMs: result.durationMs,
     totalChecks: result.totalChecks,
-    partial: result.partial,
-    issues: result.issues.map(toIngestIssue),
+    // Trimming is incomplete coverage in exactly the sense this flag already
+    // means, so the dashboard needs no second concept for it.
+    partial: result.partial || kept.length < ranked.length,
+    rules,
+    issues: kept.map(toIngestIssue),
   };
 }
 
 function toIngestIssue(issue: NormalizedIssue): IngestIssue {
   return {
     ruleId: issue.ruleId,
-    impact: issue.impact,
-    category: issue.category,
-    wcag: issue.wcag,
-    title: issue.title,
-    description: issue.description,
-    helpUrl: issue.helpUrl,
     selector: issue.selector,
     html: issue.html,
     failureSummary: issue.failureSummary,
     domOrder: issue.domOrder,
   };
+}
+
+/**
+ * What to show when the portal refused but sent no readable `error` — a proxy
+ * or gateway in front of it, most often. The portal's own wording wins
+ * whenever it sends any, since the contract keeps it panel-ready.
+ *
+ * 413 and 400 get real sentences rather than a bare status because they are
+ * the two the user can act on, and because a naked "HTTP 413" is exactly the
+ * dead end this whole change exists to remove.
+ */
+function fallbackMessage(status: number): string {
+  if (status === 413) {
+    return 'This page produced more data than the dashboard accepts in one upload. Update Mend to the latest version, which trims very large pages before sending.';
+  }
+  if (status === 400) {
+    return "The dashboard couldn't read this audit. Update Mend to the latest version — this usually means the extension and the dashboard disagree about the payload format.";
+  }
+  return `The dashboard returned an error (HTTP ${status}).`;
 }
 
 /**
@@ -114,6 +227,7 @@ export async function uploadAudit(
     );
   }
   const key = settings.dashboardApiKey.trim();
+  const payload = buildIngestPayload(result, pageTitle);
 
   let response: Response;
   try {
@@ -123,7 +237,7 @@ export async function uploadAudit(
         'content-type': 'application/json',
         authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify(buildIngestPayload(result, pageTitle)),
+      body: JSON.stringify(payload),
     });
   } catch {
     throw new SyncError(
@@ -134,7 +248,7 @@ export async function uploadAudit(
 
   if (response.status === 401) {
     throw new SyncError(
-      'The dashboard rejected the API key. Generate a fresh one on your account page.',
+      'Harpoon rejected this connection key. Reconnect Mend by Harpoon to the website project.',
       { retryable: false },
     );
   }
@@ -152,12 +266,17 @@ export async function uploadAudit(
     // the retry a 200 duplicate). Not retryable: the plan cap (403 AUDIT_CAP)
     // and client-fix statuses (400/413) — resending the same audit cannot help.
     const retryable = response.status === 429 || response.status >= 500;
-    throw new SyncError(detail || `The dashboard returned an error (HTTP ${response.status}).`, {
-      code,
-      retryable,
-    });
+    throw new SyncError(detail || fallbackMessage(response.status), { code, retryable });
   }
 
-  const body = (await response.json()) as { duplicate?: boolean };
-  return { duplicate: body.duplicate === true };
+  const body = (await response.json()) as { duplicate?: boolean; issues?: number };
+  return {
+    duplicate: body.duplicate === true,
+    // The portal reports what it stored, which is authoritative — it applies
+    // the same 1000-issue ceiling this side already trimmed to, so the two
+    // agree unless one of them is out of date. A duplicate carries no count,
+    // and nothing new was stored, so the payload's own figure stands in.
+    sent: body.issues ?? payload.issues.length,
+    found: result.issues.length,
+  };
 }

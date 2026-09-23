@@ -1,0 +1,21 @@
+{
+  "url": "https://site.test/page",
+  "pageTitle": "Site title",
+  "startedAt": 1752000000000,
+  "partial": false,
+  "rules": [
+    {
+      "ruleId": "image-alt",
+      "impact": "critical",
+      "title": "Images must have alternate text"
+    }
+  ],
+  "issues": [
+    {
+      "ruleId": "image-alt",
+      "selector": "img.hero",
+      "html": "<img class=\"hero\">",
+      "domOrder": 0
+    }
+  ]
+}

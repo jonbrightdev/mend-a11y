@@ -21,7 +21,7 @@ const contractDir = fileURLToPath(new URL('./contract', import.meta.url));
 // CONTRACT_VERSION (see test/contract/README.md's update protocol), re-copy
 // the contract/ directory and update this constant in the same commit — the
 // assertion below is what makes an unacknowledged bump fail loudly here.
-const EXPECTED_CONTRACT_VERSION = 1;
+const EXPECTED_CONTRACT_VERSION = 2;
 
 function readFixture(relPath: string): unknown {
   return JSON.parse(readFileSync(`${contractDir}/${relPath}`, 'utf8'));

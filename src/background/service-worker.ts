@@ -348,7 +348,12 @@ export async function handleMessage(
       const tab = await chrome.tabs.get(message.tabId).catch(() => null);
       try {
         const outcome = await uploadAudit(settings, result, tab?.title ?? result.url);
-        return { ok: true, duplicate: outcome.duplicate };
+        return {
+          ok: true,
+          duplicate: outcome.duplicate,
+          sent: outcome.sent,
+          found: outcome.found,
+        };
       } catch (e: unknown) {
         if (e instanceof SyncError) {
           return { ok: false, error: e.message, code: e.code, retryable: e.retryable };

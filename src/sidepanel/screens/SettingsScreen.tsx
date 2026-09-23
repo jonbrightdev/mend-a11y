@@ -25,7 +25,12 @@ export function SettingsScreen({
     onChange({ ...settings, [key]: value });
 
   return (
-    <Modal title="Settings" onClose={onClose} closing={closing}>
+    <Modal
+      title="Settings"
+      onClose={onClose}
+      closing={closing}
+      footer={<span class="version-note">Mend v{chrome.runtime.getManifest().version}</span>}
+    >
       <Segment
         label="Theme"
         value={settings.theme}

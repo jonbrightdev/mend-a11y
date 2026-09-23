@@ -3,6 +3,7 @@
 // duplicate, rejected key, server error, unreachable host).
 // Run with: tsx test/sync.test.ts
 import {
+  MAX_BODY_CHARS,
   SyncError,
   buildIngestPayload,
   normalizeDashboardUrl,
@@ -105,17 +106,68 @@ async function main(): Promise<void> {
       payload.partial === false &&
       payload.pageTitle === 'My Page');
   ok('payload keeps one entry per element', payload.issues.length === 2);
-  const first = payload.issues[0]!;
-  ok('issue fields map through',
+  // Worst-first, then by document position; both issues here are critical, so
+  // the domOrder-1 one leads. This order is what every trim below relies on.
+  const first = payload.issues.find((i) => i.ruleId === 'image-alt')!;
+  ok('per-element fields map through',
     first.ruleId === 'image-alt' &&
-      first.impact === 'critical' &&
-      first.category === 'images' &&
-      first.wcag.join(',') === '1.1.1' &&
       first.selector === 'img.hero' &&
+      first.html === '<img class="hero">' &&
       first.failureSummary === 'Element has no alt' &&
       first.domOrder === 3);
+  // Contract v2: these six describe the rule, not the element, and are sent
+  // once each. Repeating them per issue is what made a large page unsendable.
+  ok('per-rule fields move to the rules map',
+    payload.rules['image-alt']?.impact === 'critical' &&
+      payload.rules['image-alt']?.category === 'images' &&
+      payload.rules['image-alt']?.wcag.join(',') === '1.1.1' &&
+      payload.rules['image-alt']?.title === 'Images must have alternate text' &&
+      payload.rules['image-alt']?.description === 'Add an alt attribute.' &&
+      payload.rules['image-alt']?.helpUrl === 'https://example.com/help');
+  ok('per-rule fields are not repeated on the issue',
+    !('impact' in first) && !('title' in first) && !('description' in first) &&
+      !('category' in first) && !('wcag' in first) && !('helpUrl' in first));
+  ok('one rules entry per distinct ruleId', Object.keys(payload.rules).sort().join(',') === 'image-alt,label');
   ok('panel-only fields are not sent',
     !('id' in first) && !('documented' in first) && !('frameUrl' in first));
+
+  // --- large-page trimming ---
+  // The failure this whole path exists for: dailymail.com's homepage produces
+  // 1,224 issues, which the flat v1 payload encoded as 1.27 MB and the portal
+  // refused with a bare "Payload too large".
+  const many: AuditResult = {
+    ...result,
+    issues: [
+      ...Array.from({ length: 1_400 }, (_, i) =>
+        issue({ id: `m${i}`, ruleId: 'region', impact: 'minor', domOrder: i }),
+      ),
+      issue({ id: 'crit', ruleId: 'color-contrast', impact: 'critical', domOrder: 9_999 }),
+    ],
+  };
+  const trimmed = buildIngestPayload(many, 'Huge Page');
+  ok('trims to the portal ceiling rather than sending a doomed body',
+    trimmed.issues.length === 1_000);
+  ok('a trimmed run is flagged partial', trimmed.partial === true);
+  ok('trimming keeps the most severe issue', trimmed.issues[0]?.ruleId === 'color-contrast');
+  ok('the trimmed body fits what the portal accepts',
+    JSON.stringify(trimmed).length <= MAX_BODY_CHARS);
+  ok('rules map covers only the surviving issues',
+    Object.keys(trimmed.rules).sort().join(',') === 'color-contrast,region');
+
+  // A page whose individual issues are enormous can exceed the byte cap well
+  // under 1,000 issues; count alone is not enough to guarantee a body fits.
+  const heavy: AuditResult = {
+    ...result,
+    issues: Array.from({ length: 900 }, (_, i) =>
+      issue({ id: `h${i}`, ruleId: `rule-${i}`, domOrder: i, selector: 'x'.repeat(2_000), html: 'y'.repeat(5_000) }),
+    ),
+  };
+  const shrunk = buildIngestPayload(heavy, 'Heavy Page');
+  ok('shrinks a heavy page by bytes, not just by count',
+    JSON.stringify(shrunk).length <= MAX_BODY_CHARS && shrunk.issues.length < 900);
+  ok('a byte-trimmed run is flagged partial', shrunk.partial === true);
+
+  ok('an under-cap run is not flagged partial', payload.partial === false);
 
   // --- upload outcomes ---
   scriptFetch({ status: 201, body: { auditId: 'x', violations: 2 } });
@@ -133,7 +185,7 @@ async function main(): Promise<void> {
 
   scriptFetch({ status: 401, body: { error: 'Unauthorized' } });
   const unauth = await rejectsWith(uploadAudit(settings(), result, 'My Page'));
-  ok('401 explains the key was rejected', unauth != null && /API key/.test(unauth.message));
+  ok('401 explains the connection key was rejected', unauth != null && /connection key/.test(unauth.message));
   ok('401 is not retryable', unauth != null && !unauth.retryable);
 
   scriptFetch({ status: 400, body: { error: 'url must be an http(s) URL' } });

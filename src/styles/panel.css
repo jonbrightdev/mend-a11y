@@ -966,6 +966,10 @@ pre.code {
   padding: 12px 14px;
   border-top: 1px solid var(--ap-border);
 }
+.version-note {
+  font-size: 12px;
+  color: var(--ap-fg-muted);
+}
 
 .field {
   margin-bottom: 16px;

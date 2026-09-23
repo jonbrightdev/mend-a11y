@@ -11,6 +11,9 @@ export interface SyncInfo {
   error?: string;
   /** True when sending again could succeed; the chip offers Retry only then. */
   retryable?: boolean;
+  /** Issues uploaded, and issues the audit found. Equal unless the page was trimmed. */
+  sent?: number;
+  found?: number;
 }
 
 /**
@@ -29,10 +32,27 @@ export function SyncStatus({ sync, onRetry }: { sync: SyncInfo; onRetry: () => v
     );
   }
   if (sync.phase === 'synced') {
+    // A page too big to upload whole is saved trimmed, worst issues first.
+    // Saying so here is the difference between a partial save and one the
+    // user believes is complete.
+    const trimmed =
+      sync.sent !== undefined && sync.found !== undefined && sync.sent < sync.found;
     return (
-      <span class="sync-chip synced" role="status">
+      <span
+        class="sync-chip synced"
+        role="status"
+        title={
+          trimmed
+            ? `This page produced ${sync.found!.toLocaleString()} issues — too many to upload in one audit. The ${sync.sent!.toLocaleString()} most severe were saved.`
+            : undefined
+        }
+      >
         <CheckIcon size={13} />
-        {sync.duplicate ? 'Already on dashboard' : 'Saved to dashboard'}
+        {sync.duplicate
+          ? 'Already on dashboard'
+          : trimmed
+            ? `Saved top ${sync.sent!.toLocaleString()} of ${sync.found!.toLocaleString()}`
+            : 'Saved to dashboard'}
       </span>
     );
   }

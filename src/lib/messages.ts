@@ -41,7 +41,9 @@ export type VisionResponse =
   | { ok: true; mode: VisionMode | null }
   | { ok: false; error: string };
 export type SaveToDashboardResponse =
-  | { ok: true; duplicate: boolean }
+  // `sent`/`found` differ only when the page was too large to upload whole;
+  // the panel says so rather than letting a trimmed save look complete.
+  | { ok: true; duplicate: boolean; sent: number; found: number }
   | { ok: false; error: string; code?: string; retryable?: boolean };
 export type StagePendingSaveResponse = { ok: boolean };
 /** `ok` reports the key landing in settings; `uploaded` whether a staged audit went up with it. */

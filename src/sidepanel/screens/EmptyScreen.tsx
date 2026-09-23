@@ -54,10 +54,12 @@ export function EmptyScreen({
           Audit any tab without clicking the icon each time
         </button>
       )}
-      <span class="reassure">
-        <ShieldIcon />
-        {syncEnabled ? 'Audits save to your dashboard when they finish' : 'Nothing leaves your machine'}
-      </span>
+      {syncEnabled && (
+        <span class="reassure">
+          <ShieldIcon />
+          Audits save to your dashboard when they finish
+        </span>
+      )}
     </div>
   );
 }

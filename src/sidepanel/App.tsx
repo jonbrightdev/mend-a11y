@@ -485,8 +485,15 @@ export function App() {
         announce('Saving to the dashboard failed.');
         return;
       }
-      setSyncStates((prev) => ({ ...prev, [key]: { phase: 'synced', duplicate: res.duplicate } }));
-      announce('Audit saved to your dashboard.');
+      setSyncStates((prev) => ({
+        ...prev,
+        [key]: { phase: 'synced', duplicate: res.duplicate, sent: res.sent, found: res.found },
+      }));
+      announce(
+        res.sent < res.found
+          ? `Audit saved to your dashboard: the ${res.sent} most severe of ${res.found} issues.`
+          : 'Audit saved to your dashboard.',
+      );
     },
     [showToast],
   );

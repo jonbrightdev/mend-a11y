@@ -83,14 +83,12 @@ export function PassScreen({
       )}
       {sync && onRetrySync && <SyncStatus sync={sync} onRetry={onRetrySync} />}
       {prompt && <AccountPrompt onSave={prompt.onSave} onDismiss={prompt.onDismiss} />}
-      <span class="reassure">
-        <ShieldIcon />
-        {sync
-          ? 'Audits save to your dashboard automatically'
-          : onSave
-            ? 'Sent only when you press Save'
-            : 'Nothing left your machine'}
-      </span>
+      {(sync || onSave) && (
+        <span class="reassure">
+          <ShieldIcon />
+          {sync ? 'Audits save to your dashboard automatically' : 'Sent only when you press Save'}
+        </span>
+      )}
     </div>
   );
 }
