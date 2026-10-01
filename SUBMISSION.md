@@ -3,6 +3,22 @@
 Everything needed to publish Mend to the Chrome Web Store. Work top to bottom;
 the checkboxes track what's done.
 
+## Published release: 0.9.3
+
+Confirmed in the signed-in Developer Dashboard and public listing on
+2026-10-01; the listing shows an update date of 2026-09-29. The published CRX
+matches `mend-a11y-0.9.3.zip` file-for-file except for Google's added
+`update_url` manifest field and `_metadata/verified_contents.json`.
+
+- Release ZIP SHA-256: `2cfd9e9e2ac7c1510ac60d3ee088aa494230b8f0c6ca50f081d812adc923febf`.
+- Published CRX SHA-256: `4d66a03c23975ce8a8e3118e2c2f787cf31e591eb0d51d756561a5d9798abdf4`.
+- Rebuilding the release source reproduced every application file in that ZIP.
+- Unit tests, typecheck and production build passed on 2026-10-01.
+
+The checklist below is the reusable submission guide, not evidence that a
+published release is still waiting for review. Install/update/reconnect checks
+and the remaining consolidation rollout are tracked in Harpoon Plan 159.
+
 Reflects the v0.5.x permission model: `activeTab` + `scripting` + `storage` +
 `sidePanel`, plus an **optional, opt-in** `<all_urls>` host permission. There is
 no required `host_permissions`, so the extension installs with no broad-access
@@ -46,6 +62,23 @@ working tree, so commit your changes first.
 - [ ] `git push --follow-tags` to publish the commit and its tag.
 - [ ] Upload that zip in the dashboard. Note: Chrome assigns its own production
       extension id and ignores the `key` field in the manifest; that's expected.
+
+The 0.9.1 submission was rejected under code readability (Red Titanium) for
+`vendor/axe.min.js`. Version 0.9.2 packaged the readable upstream axe-core
+bundle. The 2026-09-28 rejection appears to concern that version, but the email
+does not identify a version. It cites the obsolete `Object.create` fallback, which
+builds a `javascript:` iframe URL by joining strings. Version 0.9.3 removes
+that unreachable fallback for Chrome. Before uploading, inspect the zip to
+confirm `vendor/axe.js` is present, `vendor/axe.min.js` and
+`NullProtoObjectViaIFrame` are absent, and the package version is 0.9.3.
+`NOTICE` explains the third-party code and the precise transformation.
+
+Suggested reviewer note for the next submission: "The Red Titanium snippet in
+vendor/axe.js came from axe-core's legacy Object.create fallback. This extension
+targets modern Chrome, which always provides Object.create. We removed the
+entire unused iframe fallback in version 0.9.3. The readable axe-core bundle
+and MPL-2.0 attribution are included in the package. The source transformation
+is available in our public repository at scripts/sync-axe.mjs."
 
 To rebuild the upload zip without bumping (a clean reinstall, or a build-only
 fix), run `npm ci` then `npm run prod`. The package step puts `manifest.json` at

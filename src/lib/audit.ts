@@ -188,7 +188,7 @@ export async function runAudit(tabId: number): Promise<AuditResult> {
     const injected = await chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
       world: 'MAIN',
-      files: ['vendor/axe.min.js'],
+      files: ['vendor/axe.js'],
     });
     // What real Chrome returns for a failed frame (plan 016): probed live
     // against Chrome 148.0.7778.97 with a locally-built copy of this
@@ -212,7 +212,7 @@ export async function runAudit(tabId: number): Promise<AuditResult> {
     //    not reproduced as a real failure shape in this Chrome version.
     //    Even so, a `files:` injection's completion value depends on the
     //    last statement of the injected file — a harmless future change to
-    //    axe.min.js's bundle shape could make a SUCCESSFUL frame complete
+    //    axe.js's bundle shape could make a SUCCESSFUL frame complete
     //    with `undefined` too, so `undefined` is inherently ambiguous here.
     //    We choose to treat it as a failure signal for non-top frames
     //    anyway: for an accessibility auditor, overstating coverage (a
@@ -243,7 +243,7 @@ export async function runAudit(tabId: number): Promise<AuditResult> {
       await chrome.scripting.executeScript({
         target: { tabId },
         world: 'MAIN',
-        files: ['vendor/axe.min.js'],
+        files: ['vendor/axe.js'],
       });
     } catch (topErr) {
       if (isRestrictedPageError(topErr)) throw restrictedPageError();

@@ -68,7 +68,7 @@ export default defineManifest({
   web_accessible_resources: [
     {
       matches: ['<all_urls>'],
-      resources: ['vendor/axe.min.js'],
+      resources: ['vendor/axe.js'],
       use_dynamic_url: false,
     },
   ],

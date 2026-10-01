@@ -21,7 +21,7 @@ if (!existsSync(resolve(DIST, 'manifest.json'))) {
 // gets set (no error is thrown, it just silently fails to load). Injecting
 // via page.evaluate instead works because CDP's Runtime.evaluate is not
 // subject to the page's CSP.
-const AXE_SOURCE = readFileSync(resolve(DIST, 'vendor/axe.min.js'), 'utf8');
+const AXE_SOURCE = readFileSync(resolve(DIST, 'vendor/axe.js'), 'utf8');
 
 const checks = [];
 const ok = (name, cond) => checks.push([name, Boolean(cond)]);

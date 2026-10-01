@@ -206,7 +206,7 @@ async function main(): Promise<void> {
   // plan 016 landed: the live probe never reproduced undefined as a failure
   // shape (successful frames returned `true`, the file's completion value),
   // but a `files:` injection's completion value is inherently shape-
-  // dependent, so a future axe.min.js bundle could complete `undefined` on
+  // dependent, so a future axe.js bundle could complete `undefined` on
   // success too. The predicate now treats undefined on a non-top frame as a
   // failure signal anyway: overstating audit coverage is worse than an
   // occasional false "partial".

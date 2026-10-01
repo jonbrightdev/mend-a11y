@@ -25,7 +25,7 @@ runtime contexts:
   Each suite is a script that prints `N/N checks passed` and exits non-zero
   on failure.
 - `npm run test:smoke` — Puppeteer smoke test; build first (`npm run build`).
-- `npm run sync-axe` — re-vendor `public/vendor/axe.min.js` after bumping
+- `npm run sync-axe` — re-vendor `public/vendor/axe.js` after bumping
   `axe-core`. Also runs automatically as `postinstall`.
 
 ## Invariants

@@ -91,9 +91,9 @@ check it in the service worker console.
 ## Build
 
 ```bash
-npm run build     # typecheck, then production build into dist/
+npm run build     # sync readable axe-core, typecheck, then build into dist/
 npm run typecheck # types only
-npm run sync-axe  # re-copy the vendored engine after a version bump
+npm run sync-axe  # re-copy the readable vendored engine after a version bump
 ```
 
 ## Testing

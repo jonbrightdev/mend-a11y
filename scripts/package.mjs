@@ -9,7 +9,7 @@
 // must never ship.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, rmSync, readFileSync, statSync, readdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, rmSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 
@@ -49,6 +49,23 @@ if (manifest.version !== pkg.version) {
       '(which bumps, builds, and packages in order).',
   );
 }
+
+const readableEngine = join(distDir, 'vendor', 'axe.js');
+if (!existsSync(readableEngine) || !readFileSync(readableEngine, 'utf8').includes('function axeFunction(window)')) {
+  fail('the readable axe-core engine is missing from dist/vendor/axe.js; rebuild before packaging.');
+}
+const engineSource = readFileSync(readableEngine, 'utf8');
+if (engineSource.includes('NullProtoObjectViaIFrame') || !engineSource.includes('module.exports = Object.create;')) {
+  fail('the legacy iframe Object.create fallback is present in dist/vendor/axe.js; rebuild before packaging.');
+}
+if (existsSync(join(distDir, 'vendor', 'axe.min.js'))) {
+  fail('dist/vendor/axe.min.js must not ship; run `npm run build` to remove the rejected file.');
+}
+
+// Ship the attribution and license alongside the modified MPL-licensed file.
+copyFileSync(join(root, 'NOTICE'), join(distDir, 'NOTICE'));
+mkdirSync(join(distDir, 'licenses'), { recursive: true });
+copyFileSync(join(root, 'licenses', 'MPL-2.0.txt'), join(distDir, 'licenses', 'MPL-2.0.txt'));
 
 const expectedRelayMatches = [
   'https://app.harpoon.solutions/connect*',

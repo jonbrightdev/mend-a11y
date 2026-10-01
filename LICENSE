@@ -24,6 +24,6 @@ SOFTWARE.
 
 This product bundles third-party software. See the NOTICE file for the
 components included and their respective licenses. In particular, the
-accessibility engine vendored at public/vendor/axe.min.js is licensed under the
+accessibility engine vendored at public/vendor/axe.js is licensed under the
 Mozilla Public License 2.0, which is a separate license from the MIT license
 above. The MIT license applies only to the code authored by the Mend project.

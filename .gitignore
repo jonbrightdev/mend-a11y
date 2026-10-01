@@ -8,6 +8,7 @@ dist/
 # Vendored engine: regenerated from node_modules by the postinstall / sync-axe
 # script, so it is not source. Run `npm install` (or `npm run sync-axe`) to
 # produce it.
+public/vendor/axe.js
 public/vendor/axe.min.js
 
 # Logs
